@@ -1,0 +1,84 @@
+{
+  "name": "habit-tracker",
+  "version": "1.0.0",
+  "description": "A personal local-first performance tracker",
+  "type": "module",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "build": "vite build",
+    "preview": "vite preview",
+    "start": "electron .",
+    "build:icon": "node scripts/gen-icons.cjs && cp build/icons/gradient.svg build/icon.svg && cp build/icons/gradient.png build/icon.png && cp build/icons/gradient.ico build/icon.ico",
+    "dist": "npm run build && electron-builder",
+    "dist:win": "npm run build && electron-builder --win portable nsis",
+    "test": "vitest run --passWithNoTests",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
+    "@habit-tracker/core": "1.0.0",
+    "chokidar": "^3.5.3",
+    "d3-shape": "^3.2.0",
+    "date-fns": "^4.4.0",
+    "framer-motion": "^13.1.0",
+    "fs-extra": "^11.1.1",
+    "html-to-image": "^1.11.13",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "recharts": "^3.10.1"
+  },
+  "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@vitejs/plugin-react": "^6.0.5",
+    "concurrently": "^9.2.4",
+    "cross-env": "^7.0.3",
+    "electron": "44.0.0",
+    "electron-builder": "^26.15.3",
+    "jsdom": "^30.0.1",
+    "vite": "^8.2.1",
+    "vitest": "^4.1.11",
+    "wait-on": "^9.1.0"
+  },
+  "build": {
+    "productName": "Habit Tracker",
+    "appId": "com.getyourwish.habit-tracker",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "build/icons",
+        "to": "icons"
+      },
+      {
+        "from": "build/icon.ico",
+        "to": "icon.ico"
+      }
+    ],
+    "win": {
+      "target": [
+        "portable",
+        "nsis"
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GetYourWish/Habit-Tracker.git"
+  }
+}

@@ -1,0 +1,120 @@
+{
+  "schemaVersion": 1,
+  "meta": {
+    "createdAt": "2026-02-01T06:00:00.000Z",
+    "updatedAt": "2026-02-01T18:00:00.000Z"
+  },
+  "settings": {
+    "theme": "light",
+    "weekStartsOn": 0,
+    "heatmapMode": "count",
+    "fatigueIncrement": 0.25,
+    "fatigueCap": 2.0
+  },
+  "difficulties": [
+    { "id": "cdiff-easy", "label": "Easy", "score": 1, "color": "#4ade80", "order": 0, "active": true },
+    { "id": "cdiff-hard", "label": "Hard", "score": 3, "color": "#f87171", "order": 1, "active": true },
+    { "id": "cdiff-vhard", "label": "Very Hard", "score": 5, "color": "#dc2626", "order": 2, "active": true }
+  ],
+  "categories": [
+    { "id": "cat-x", "name": "Focus", "color": "#a78bfa", "order": 0, "active": true, "priorityMultiplier": 2.0 }
+  ],
+  "markers": [],
+  "board": [
+    { "id": "cb1", "type": "task", "taskId": "ctie-a" },
+    { "id": "cb2", "type": "task", "taskId": "ctie-b" },
+    { "id": "cb3", "type": "task", "taskId": "ctask-3" },
+    { "id": "cb4", "type": "task", "taskId": "ctask-4" },
+    { "id": "cb5", "type": "task", "taskId": "ctask-5" },
+    { "id": "cb6", "type": "task", "taskId": "ctask-6" },
+    { "id": "cb7", "type": "task", "taskId": "ctask-7" }
+  ],
+  "tasks": [
+    {
+      "id": "ctie-a",
+      "text": "Tie A (09:00)",
+      "createdAt": "2026-02-01T07:00:00.000Z",
+      "completion": {
+        "completedDate": "2026-02-01",
+        "completedAt": "2026-02-01T09:00:00.000Z",
+        "difficultyId": "cdiff-easy",
+        "categoryId": null,
+        "note": ""
+      }
+    },
+    {
+      "id": "ctie-b",
+      "text": "Tie B (09:00, same instant)",
+      "createdAt": "2026-02-01T07:01:00.000Z",
+      "completion": {
+        "completedDate": "2026-02-01",
+        "completedAt": "2026-02-01T09:00:00.000Z",
+        "difficultyId": "cdiff-easy",
+        "categoryId": null,
+        "note": ""
+      }
+    },
+    {
+      "id": "ctask-3",
+      "text": "Hard task",
+      "createdAt": "2026-02-01T07:02:00.000Z",
+      "completion": {
+        "completedDate": "2026-02-01",
+        "completedAt": "2026-02-01T10:00:00.000Z",
+        "difficultyId": "cdiff-hard",
+        "categoryId": null,
+        "note": ""
+      }
+    },
+    {
+      "id": "ctask-4",
+      "text": "Hard task 2",
+      "createdAt": "2026-02-01T07:03:00.000Z",
+      "completion": {
+        "completedDate": "2026-02-01",
+        "completedAt": "2026-02-01T10:30:00.000Z",
+        "difficultyId": "cdiff-hard",
+        "categoryId": null,
+        "note": ""
+      }
+    },
+    {
+      "id": "ctask-5",
+      "text": "Focus deep work",
+      "createdAt": "2026-02-01T07:04:00.000Z",
+      "completion": {
+        "completedDate": "2026-02-01",
+        "completedAt": "2026-02-01T11:00:00.000Z",
+        "difficultyId": "cdiff-vhard",
+        "categoryId": "cat-x",
+        "note": "cap boundary"
+      }
+    },
+    {
+      "id": "ctask-6",
+      "text": "Capped 1",
+      "createdAt": "2026-02-01T07:05:00.000Z",
+      "completion": {
+        "completedDate": "2026-02-01",
+        "completedAt": "2026-02-01T11:30:00.000Z",
+        "difficultyId": "cdiff-vhard",
+        "categoryId": null,
+        "note": ""
+      }
+    },
+    {
+      "id": "ctask-7",
+      "text": "Capped 2",
+      "createdAt": "2026-02-01T07:06:00.000Z",
+      "completion": {
+        "completedDate": "2026-02-01",
+        "completedAt": "2026-02-01T12:00:00.000Z",
+        "difficultyId": "cdiff-vhard",
+        "categoryId": null,
+        "note": ""
+      }
+    }
+  ],
+  "workingOn": [],
+  "logs": []
+}

@@ -1,0 +1,35 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install (workspaces)
+        run: npm ci
+
+      - name: Build renderer
+        run: npm run build --workspace desktop
+
+      - name: Package Windows (portable + NSIS) and attach to the GitHub Release
+        working-directory: desktop
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # No code signing cert in CI — skip discovery so the build succeeds
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npx electron-builder --win portable nsis --publish always

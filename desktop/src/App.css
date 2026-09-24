@@ -1,0 +1,137 @@
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* Aurora background layer - fixed full viewport, behind .app */
+.aurora-background {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: 
+    radial-gradient(circle at 20% 30%, var(--aurora-1) 0%, transparent 50%),
+    radial-gradient(circle at 80% 70%, var(--aurora-2) 0%, transparent 50%),
+    radial-gradient(circle at 40% 80%, var(--aurora-3) 0%, transparent 50%);
+  animation: aurora-drift 32s linear infinite;
+  transition: background 1.5s ease;
+}
+
+@keyframes aurora-drift {
+  0% { transform: translate(0, 0) scale(1); }
+  25% { transform: translate(2%, 2%) scale(1.05); }
+  50% { transform: translate(-1%, 4%) scale(0.98); }
+  75% { transform: translate(3%, -2%) scale(1.02); }
+  100% { transform: translate(0, 0) scale(1); }
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 16px;
+  /* Glass effect */
+  backdrop-filter: blur(var(--glass-blur)) saturate(1.2);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  border-bottom: none;
+}
+
+.nav-item {
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-weight: 500;
+  transition: all var(--transition-fast);
+}
+
+.nav-item:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.nav-item.active {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.nav-refresh-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.nav-refresh-btn:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.nav-refresh-btn:active {
+  transform: scale(0.92);
+}
+
+.nav-refresh-btn.spinning svg {
+  animation: spin 0.6s ease-in-out;
+}
+
+.main-content {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+.loading-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  gap: 16px;
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--border-color);
+  border-top-color: var(--text-primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Drop Indicator / Insertion Point Styles */
+.insertion-point {
+  height: 8px;
+  margin: 0;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+  background-color: transparent;
+  position: relative;
+  z-index: 10;
+}
+.insertion-point.is-over {
+  background-color: #3b82f6; /* Primary blue accent */
+  height: 4px;
+  margin: 2px 0;
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.6);
+}
+[data-theme="dark"] .insertion-point.is-over {
+  background-color: #60a5fa;
+  box-shadow: 0 0 8px rgba(96, 165, 250, 0.6);
+}

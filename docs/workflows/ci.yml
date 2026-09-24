@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install (workspaces)
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Drift guard (exact core pins)
+        run: npm run check:core-pin
+
+      - name: Core tests — Node (Vitest)
+        run: npm run test:core
+
+      - name: Core tests — jest-expo / Hermes (mobile preset)
+        run: npm run test:core:rn
+
+      - name: Desktop tests (Vitest + RTL)
+        run: npm run test:desktop
+
+      - name: Desktop build
+        run: npm run build
