@@ -1,0 +1,46 @@
+{
+  "expo": {
+    "name": "Habit Tracker",
+    "slug": "habit-tracker",
+    "version": "1.0.11",
+    "scheme": "habit-tracker",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "backgroundColor": "#EEF2FF",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#EEF2FF"
+    },
+    "android": {
+      "package": "com.getyourwish.performancetracker",
+      "versionCode": 12,
+      "edgeToEdgeEnabled": true,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#EEF2FF"
+      },
+      "allowBackup": false
+    },
+    "platforms": [
+      "android"
+    ],
+    "plugins": [
+      "./plugins/with-gradle-version",
+      "./plugins/with-expo-gradle-kotlin",
+      "./plugins/with-expo-fs-leak",
+      "./plugins/with-expo-saf-truncate",
+      "./plugins/with-icon-font",
+      "./plugins/with-expo-reactcommon-include",
+      "./plugins/with-agp9-compat",
+      "./plugins/with-windows-cmake",
+      "./plugins/with-standalone-release",
+      "./plugins/with-crash-log",
+      "./plugins/with-release-permissions"
+    ],
+    "extra": {
+      "schemaVersionSupported": 1
+    }
+  }
+}

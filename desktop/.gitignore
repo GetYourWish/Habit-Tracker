@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+build/*
+!build/
+!build/icon.svg
+!build/icon.png
+!build/icon.ico
+!build/icons/
+!build/icons/*.svg
+!build/icons/*.png
+!build/icons/*.ico
+dist/
+out/
+release/
+
+# Backups
+.backups/
+
+# IDE
+.vs/
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment
+.env

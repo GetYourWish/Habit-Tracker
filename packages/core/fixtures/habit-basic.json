@@ -1,0 +1,205 @@
+{
+  "schemaVersion": 1,
+  "meta": {
+    "createdAt": "2026-01-01T08:00:00.000Z",
+    "updatedAt": "2026-01-10T09:00:00.000Z"
+  },
+  "settings": {
+    "theme": "dark",
+    "weekStartsOn": 1,
+    "heatmapMode": "score",
+    "fatigueIncrement": 0.1,
+    "fatigueCap": 3
+  },
+  "difficulties": [
+    {
+      "id": "diff-easy",
+      "label": "Easy",
+      "score": 1,
+      "color": "#4ade80",
+      "order": 0,
+      "active": true
+    },
+    {
+      "id": "diff-medium",
+      "label": "Medium",
+      "score": 2,
+      "color": "#fbbf24",
+      "order": 1,
+      "active": true
+    },
+    {
+      "id": "diff-hard",
+      "label": "Hard",
+      "score": 3,
+      "color": "#f87171",
+      "order": 2,
+      "active": true
+    },
+    {
+      "id": "diff-vhard",
+      "label": "Very Hard",
+      "score": 5,
+      "color": "#dc2626",
+      "order": 3,
+      "active": true
+    }
+  ],
+  "categories": [
+    {
+      "id": "cat-work",
+      "name": "Work",
+      "color": "#60a5fa",
+      "order": 0,
+      "active": true,
+      "priorityMultiplier": 1.5
+    },
+    {
+      "id": "cat-home",
+      "name": "Home",
+      "color": "#f472b6",
+      "order": 1,
+      "active": true
+    }
+  ],
+  "markers": [
+    {
+      "id": "mk-1",
+      "categoryId": "cat-work",
+      "order": 0
+    },
+    {
+      "id": "mk-2",
+      "categoryId": "cat-work",
+      "order": 1
+    },
+    {
+      "id": "mk-3",
+      "categoryId": "cat-home",
+      "order": 2
+    }
+  ],
+  "board": [
+    {
+      "id": "b1",
+      "type": "marker",
+      "markerId": "mk-1"
+    },
+    {
+      "id": "b2",
+      "type": "task",
+      "taskId": "task-1"
+    },
+    {
+      "id": "b2b",
+      "type": "task",
+      "taskId": "task-5"
+    },
+    {
+      "id": "b3",
+      "type": "task",
+      "taskId": "task-2"
+    },
+    {
+      "id": "b4",
+      "type": "marker",
+      "markerId": "mk-2"
+    },
+    {
+      "id": "b5",
+      "type": "task",
+      "taskId": "task-3"
+    },
+    {
+      "id": "b6",
+      "type": "marker",
+      "markerId": "mk-3"
+    },
+    {
+      "id": "b7",
+      "type": "task",
+      "taskId": "task-4"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "task-1",
+      "text": "Ship report",
+      "createdAt": "2026-01-05T09:00:00.000Z",
+      "completion": {
+        "completedDate": "2026-01-06",
+        "completedAt": "2026-01-06T10:00:00.000Z",
+        "difficultyId": "diff-hard",
+        "categoryId": "cat-work",
+        "note": ""
+      }
+    },
+    {
+      "id": "task-2",
+      "text": "Write tests",
+      "createdAt": "2026-01-05T09:30:00.000Z",
+      "completion": {
+        "completedDate": "2026-01-06",
+        "completedAt": "2026-01-06T11:00:00.000Z",
+        "difficultyId": "diff-easy",
+        "categoryId": null,
+        "note": ""
+      }
+    },
+    {
+      "id": "task-3",
+      "text": "Groceries",
+      "createdAt": "2026-01-07T08:00:00.000Z",
+      "completion": {
+        "completedDate": "2026-01-08",
+        "completedAt": "2026-01-08T18:00:00.000Z",
+        "difficultyId": "diff-medium",
+        "categoryId": "cat-home",
+        "note": "weekly run"
+      }
+    },
+    {
+      "id": "task-4",
+      "text": "Active task",
+      "createdAt": "2026-01-09T08:00:00.000Z"
+    },
+    {
+      "id": "task-5",
+      "text": "Active work task",
+      "createdAt": "2026-01-09T09:00:00.000Z"
+    }
+  ],
+  "workingOn": [
+    "task-4"
+  ],
+  "logs": [
+    {
+      "id": "log-1",
+      "timestamp": "2026-01-06T10:00:00.000Z",
+      "taskId": "task-1",
+      "taskText": "Ship report",
+      "difficultyLabel": "Hard",
+      "difficultyColor": "#f87171",
+      "categoryName": "Work",
+      "categoryColor": "#60a5fa",
+      "priorityMultiplier": 1.5,
+      "fatigueMultiplier": 1,
+      "basePoints": 3,
+      "finalScore": 4.5
+    },
+    {
+      "id": "log-2",
+      "timestamp": "2026-01-06T11:00:00.000Z",
+      "taskId": "task-2",
+      "taskText": "Write tests",
+      "difficultyLabel": "Easy",
+      "difficultyColor": "#4ade80",
+      "categoryName": null,
+      "categoryColor": null,
+      "priorityMultiplier": 1,
+      "fatigueMultiplier": 1.1,
+      "basePoints": 1,
+      "finalScore": 1.1
+    }
+  ]
+}

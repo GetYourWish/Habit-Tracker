@@ -1,0 +1,23 @@
+{
+  "name": "@habit-tracker/core",
+  "version": "1.0.0",
+  "description": "Shared business logic for Habit Tracker — scoring, schema validation/healing, dates, defaults. Pure JS: no Node builtins, no Electron, no React. The single source of truth for every rule the desktop and Android apps must agree on.",
+  "license": "MIT",
+  "main": "index.js",
+  "files": [
+    "index.js",
+    "src",
+    "fixtures",
+    "__fixtures__"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "uuid": "^11.1.1"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.11"
+  }
+}

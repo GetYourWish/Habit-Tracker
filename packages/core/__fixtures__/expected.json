@@ -1,0 +1,534 @@
+{
+  "habit-basic.json": {
+    "dayScores": {
+      "2026-01-06": 5.6,
+      "2026-01-08": 2
+    },
+    "breakdowns": {
+      "task-1": {
+        "basePoints": 3,
+        "difficultyLabel": "Hard",
+        "difficultyColor": "#f87171",
+        "categoryName": "Work",
+        "categoryColor": "#60a5fa",
+        "priorityMultiplier": 1.5,
+        "fatigueMultiplier": 1,
+        "finalScore": 4.5
+      },
+      "task-2": {
+        "basePoints": 1,
+        "difficultyLabel": "Easy",
+        "difficultyColor": "#4ade80",
+        "categoryName": null,
+        "categoryColor": null,
+        "priorityMultiplier": 1,
+        "fatigueMultiplier": 1.1,
+        "finalScore": 1.1
+      },
+      "task-3": {
+        "basePoints": 2,
+        "difficultyLabel": "Medium",
+        "difficultyColor": "#fbbf24",
+        "categoryName": "Home",
+        "categoryColor": "#f472b6",
+        "priorityMultiplier": 1,
+        "fatigueMultiplier": 1,
+        "finalScore": 2
+      }
+    },
+    "categoryDerivations": {
+      "board:1": "cat-work",
+      "board:4": null
+    },
+    "healedOutput": {
+      "schemaVersion": 1,
+      "meta": {
+        "createdAt": "2026-01-01T08:00:00.000Z",
+        "updatedAt": "2026-01-10T09:00:00.000Z"
+      },
+      "settings": {
+        "theme": "dark",
+        "weekStartsOn": 1,
+        "heatmapMode": "score",
+        "fatigueIncrement": 0.1,
+        "fatigueCap": 3
+      },
+      "difficulties": [
+        {
+          "id": "diff-easy",
+          "label": "Easy",
+          "score": 1,
+          "color": "#4ade80",
+          "order": 0,
+          "active": true
+        },
+        {
+          "id": "diff-medium",
+          "label": "Medium",
+          "score": 2,
+          "color": "#fbbf24",
+          "order": 1,
+          "active": true
+        },
+        {
+          "id": "diff-hard",
+          "label": "Hard",
+          "score": 3,
+          "color": "#f87171",
+          "order": 2,
+          "active": true
+        },
+        {
+          "id": "diff-vhard",
+          "label": "Very Hard",
+          "score": 5,
+          "color": "#dc2626",
+          "order": 3,
+          "active": true
+        }
+      ],
+      "categories": [
+        {
+          "id": "cat-work",
+          "name": "Work",
+          "color": "#60a5fa",
+          "order": 0,
+          "active": true,
+          "priorityMultiplier": 1.5
+        },
+        {
+          "id": "cat-home",
+          "name": "Home",
+          "color": "#f472b6",
+          "order": 1,
+          "active": true
+        }
+      ],
+      "markers": [
+        {
+          "id": "mk-1",
+          "categoryId": "cat-work",
+          "order": 0
+        },
+        {
+          "id": "mk-2",
+          "categoryId": "cat-work",
+          "order": 1
+        },
+        {
+          "id": "mk-3",
+          "categoryId": "cat-home",
+          "order": 2
+        }
+      ],
+      "board": [
+        {
+          "id": "b1",
+          "type": "marker",
+          "markerId": "mk-1"
+        },
+        {
+          "id": "b2b",
+          "type": "task",
+          "taskId": "task-5"
+        },
+        {
+          "id": "b4",
+          "type": "marker",
+          "markerId": "mk-2"
+        },
+        {
+          "id": "b6",
+          "type": "marker",
+          "markerId": "mk-3"
+        },
+        {
+          "id": "b7",
+          "type": "task",
+          "taskId": "task-4"
+        }
+      ],
+      "tasks": [
+        {
+          "id": "task-1",
+          "text": "Ship report",
+          "createdAt": "2026-01-05T09:00:00.000Z",
+          "completion": {
+            "completedDate": "2026-01-06",
+            "completedAt": "2026-01-06T10:00:00.000Z",
+            "difficultyId": "diff-hard",
+            "categoryId": "cat-work",
+            "note": ""
+          }
+        },
+        {
+          "id": "task-2",
+          "text": "Write tests",
+          "createdAt": "2026-01-05T09:30:00.000Z",
+          "completion": {
+            "completedDate": "2026-01-06",
+            "completedAt": "2026-01-06T11:00:00.000Z",
+            "difficultyId": "diff-easy",
+            "categoryId": null,
+            "note": ""
+          }
+        },
+        {
+          "id": "task-3",
+          "text": "Groceries",
+          "createdAt": "2026-01-07T08:00:00.000Z",
+          "completion": {
+            "completedDate": "2026-01-08",
+            "completedAt": "2026-01-08T18:00:00.000Z",
+            "difficultyId": "diff-medium",
+            "categoryId": "cat-home",
+            "note": "weekly run"
+          }
+        },
+        {
+          "id": "task-4",
+          "text": "Active task",
+          "createdAt": "2026-01-09T08:00:00.000Z"
+        },
+        {
+          "id": "task-5",
+          "text": "Active work task",
+          "createdAt": "2026-01-09T09:00:00.000Z"
+        }
+      ],
+      "workingOn": [
+        "task-4"
+      ],
+      "logs": [
+        {
+          "id": "log-1",
+          "timestamp": "2026-01-06T10:00:00.000Z",
+          "taskId": "task-1",
+          "taskText": "Ship report",
+          "difficultyLabel": "Hard",
+          "difficultyColor": "#f87171",
+          "categoryName": "Work",
+          "categoryColor": "#60a5fa",
+          "priorityMultiplier": 1.5,
+          "fatigueMultiplier": 1,
+          "basePoints": 3,
+          "finalScore": 4.5
+        },
+        {
+          "id": "log-2",
+          "timestamp": "2026-01-06T11:00:00.000Z",
+          "taskId": "task-2",
+          "taskText": "Write tests",
+          "difficultyLabel": "Easy",
+          "difficultyColor": "#4ade80",
+          "categoryName": null,
+          "categoryColor": null,
+          "priorityMultiplier": 1,
+          "fatigueMultiplier": 1.1,
+          "basePoints": 1,
+          "finalScore": 1.1
+        }
+      ]
+    }
+  },
+  "habit-cap-day.json": {
+    "dayScores": {
+      "2026-02-01": 52
+    },
+    "breakdowns": {
+      "ctie-a": {
+        "basePoints": 1,
+        "difficultyLabel": "Easy",
+        "difficultyColor": "#4ade80",
+        "categoryName": null,
+        "categoryColor": null,
+        "priorityMultiplier": 1,
+        "fatigueMultiplier": 1,
+        "finalScore": 1
+      },
+      "ctie-b": {
+        "basePoints": 1,
+        "difficultyLabel": "Easy",
+        "difficultyColor": "#4ade80",
+        "categoryName": null,
+        "categoryColor": null,
+        "priorityMultiplier": 1,
+        "fatigueMultiplier": 1,
+        "finalScore": 1
+      },
+      "ctask-3": {
+        "basePoints": 3,
+        "difficultyLabel": "Hard",
+        "difficultyColor": "#f87171",
+        "categoryName": null,
+        "categoryColor": null,
+        "priorityMultiplier": 1,
+        "fatigueMultiplier": 1.5,
+        "finalScore": 4.5
+      },
+      "ctask-4": {
+        "basePoints": 3,
+        "difficultyLabel": "Hard",
+        "difficultyColor": "#f87171",
+        "categoryName": null,
+        "categoryColor": null,
+        "priorityMultiplier": 1,
+        "fatigueMultiplier": 1.75,
+        "finalScore": 5.25
+      },
+      "ctask-5": {
+        "basePoints": 5,
+        "difficultyLabel": "Very Hard",
+        "difficultyColor": "#dc2626",
+        "categoryName": "Focus",
+        "categoryColor": "#a78bfa",
+        "priorityMultiplier": 2,
+        "fatigueMultiplier": 2,
+        "finalScore": 20
+      },
+      "ctask-6": {
+        "basePoints": 5,
+        "difficultyLabel": "Very Hard",
+        "difficultyColor": "#dc2626",
+        "categoryName": null,
+        "categoryColor": null,
+        "priorityMultiplier": 1,
+        "fatigueMultiplier": 2,
+        "finalScore": 10
+      },
+      "ctask-7": {
+        "basePoints": 5,
+        "difficultyLabel": "Very Hard",
+        "difficultyColor": "#dc2626",
+        "categoryName": null,
+        "categoryColor": null,
+        "priorityMultiplier": 1,
+        "fatigueMultiplier": 2,
+        "finalScore": 10
+      }
+    },
+    "categoryDerivations": {},
+    "healedOutput": {
+      "schemaVersion": 1,
+      "meta": {
+        "createdAt": "2026-02-01T06:00:00.000Z",
+        "updatedAt": "2026-02-01T18:00:00.000Z"
+      },
+      "settings": {
+        "theme": "light",
+        "weekStartsOn": 0,
+        "heatmapMode": "count",
+        "fatigueIncrement": 0.25,
+        "fatigueCap": 2
+      },
+      "difficulties": [
+        {
+          "id": "cdiff-easy",
+          "label": "Easy",
+          "score": 1,
+          "color": "#4ade80",
+          "order": 0,
+          "active": true
+        },
+        {
+          "id": "cdiff-hard",
+          "label": "Hard",
+          "score": 3,
+          "color": "#f87171",
+          "order": 1,
+          "active": true
+        },
+        {
+          "id": "cdiff-vhard",
+          "label": "Very Hard",
+          "score": 5,
+          "color": "#dc2626",
+          "order": 2,
+          "active": true
+        }
+      ],
+      "categories": [
+        {
+          "id": "cat-x",
+          "name": "Focus",
+          "color": "#a78bfa",
+          "order": 0,
+          "active": true,
+          "priorityMultiplier": 2
+        }
+      ],
+      "markers": [],
+      "board": [],
+      "tasks": [
+        {
+          "id": "ctie-a",
+          "text": "Tie A (09:00)",
+          "createdAt": "2026-02-01T07:00:00.000Z",
+          "completion": {
+            "completedDate": "2026-02-01",
+            "completedAt": "2026-02-01T09:00:00.000Z",
+            "difficultyId": "cdiff-easy",
+            "categoryId": null,
+            "note": ""
+          }
+        },
+        {
+          "id": "ctie-b",
+          "text": "Tie B (09:00, same instant)",
+          "createdAt": "2026-02-01T07:01:00.000Z",
+          "completion": {
+            "completedDate": "2026-02-01",
+            "completedAt": "2026-02-01T09:00:00.000Z",
+            "difficultyId": "cdiff-easy",
+            "categoryId": null,
+            "note": ""
+          }
+        },
+        {
+          "id": "ctask-3",
+          "text": "Hard task",
+          "createdAt": "2026-02-01T07:02:00.000Z",
+          "completion": {
+            "completedDate": "2026-02-01",
+            "completedAt": "2026-02-01T10:00:00.000Z",
+            "difficultyId": "cdiff-hard",
+            "categoryId": null,
+            "note": ""
+          }
+        },
+        {
+          "id": "ctask-4",
+          "text": "Hard task 2",
+          "createdAt": "2026-02-01T07:03:00.000Z",
+          "completion": {
+            "completedDate": "2026-02-01",
+            "completedAt": "2026-02-01T10:30:00.000Z",
+            "difficultyId": "cdiff-hard",
+            "categoryId": null,
+            "note": ""
+          }
+        },
+        {
+          "id": "ctask-5",
+          "text": "Focus deep work",
+          "createdAt": "2026-02-01T07:04:00.000Z",
+          "completion": {
+            "completedDate": "2026-02-01",
+            "completedAt": "2026-02-01T11:00:00.000Z",
+            "difficultyId": "cdiff-vhard",
+            "categoryId": "cat-x",
+            "note": "cap boundary"
+          }
+        },
+        {
+          "id": "ctask-6",
+          "text": "Capped 1",
+          "createdAt": "2026-02-01T07:05:00.000Z",
+          "completion": {
+            "completedDate": "2026-02-01",
+            "completedAt": "2026-02-01T11:30:00.000Z",
+            "difficultyId": "cdiff-vhard",
+            "categoryId": null,
+            "note": ""
+          }
+        },
+        {
+          "id": "ctask-7",
+          "text": "Capped 2",
+          "createdAt": "2026-02-01T07:06:00.000Z",
+          "completion": {
+            "completedDate": "2026-02-01",
+            "completedAt": "2026-02-01T12:00:00.000Z",
+            "difficultyId": "cdiff-vhard",
+            "categoryId": null,
+            "note": ""
+          }
+        }
+      ],
+      "workingOn": [],
+      "logs": []
+    }
+  },
+  "habit-legacy.json": {
+    "dayScores": {
+      "2025-12-05": 1
+    },
+    "breakdowns": {
+      "ltask-2": {
+        "basePoints": 1,
+        "difficultyLabel": "Easy",
+        "difficultyColor": "#4ade80",
+        "categoryName": null,
+        "categoryColor": null,
+        "priorityMultiplier": 1,
+        "fatigueMultiplier": 1,
+        "finalScore": 1
+      }
+    },
+    "categoryDerivations": {
+      "board:0": null
+    },
+    "healedOutput": {
+      "meta": {
+        "createdAt": "2025-12-01T08:00:00.000Z",
+        "updatedAt": "2025-12-02T08:00:00.000Z"
+      },
+      "settings": {
+        "theme": "system",
+        "weekStartsOn": 1,
+        "heatmapMode": "score",
+        "fatigueIncrement": 0.1,
+        "fatigueCap": 3
+      },
+      "difficulties": [
+        {
+          "id": "ldiff-easy",
+          "label": "Easy",
+          "score": 1,
+          "color": "#4ade80",
+          "order": 0,
+          "active": true
+        },
+        {
+          "id": "ldiff-hard",
+          "label": "Hard",
+          "score": 3,
+          "color": "#f87171",
+          "order": 1,
+          "active": true
+        }
+      ],
+      "categories": [],
+      "markers": [],
+      "board": [
+        {
+          "id": "lb1",
+          "type": "task",
+          "taskId": "ltask-1"
+        }
+      ],
+      "tasks": [
+        {
+          "id": "ltask-1",
+          "text": "12345",
+          "createdAt": "2025-12-03T08:00:00.000Z"
+        },
+        {
+          "id": "ltask-2",
+          "text": "Done thing",
+          "createdAt": "2025-12-04T08:00:00.000Z",
+          "completion": {
+            "completedDate": "2025-12-05",
+            "completedAt": "2025-12-05T14:00:00.000Z",
+            "difficultyId": "ldiff-easy",
+            "categoryId": null,
+            "note": ""
+          }
+        }
+      ],
+      "schemaVersion": 1,
+      "workingOn": [],
+      "logs": []
+    }
+  }
+}

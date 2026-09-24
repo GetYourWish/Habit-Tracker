@@ -1,0 +1,35 @@
+{
+  "name": "@habit-tracker/mobile",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Habit Tracker for Android (Expo / React Native). Reads and writes the SAME habit.json as the desktop app through @habit-tracker/core, synced via Syncthing. This workspace also hosts the dual-runtime drift guard: the SAME golden-fixture contract that runs under Node/Vitest must produce identical results under jest-expo (Hermes).",
+  "license": "MIT",
+  "main": "index.js",
+  "scripts": {
+    "postinstall": "node plugins/patch-expo-gradle-kotlin.js && node plugins/patch-windows-cmake.js && node plugins/patch-expo-fs-leak.js && node plugins/patch-expo-saf-truncate.js && node plugins/patch-expo-reactcommon-include.js && node plugins/embed-icon-font.js",
+    "start": "expo start",
+    "android": "expo run:android",
+    "prebuild": "node scripts/expo-prebuild-safe.js",
+    "clean:native": "node scripts/clean-native.js",
+    "bundle:check": "expo export --platform android --output-dir .bundle-check",
+    "test": "jest"
+  },
+  "dependencies": {
+    "@expo/vector-icons": "^15.0.2",
+    "@habit-tracker/core": "1.0.0",
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "expo": "57.0.17",
+    "expo-file-system": "~57.0.6",
+    "expo-linear-gradient": "~57.0.1",
+    "react": "19.2.8",
+    "react-native": "0.87.1",
+    "react-native-get-random-values": "~1.11.0",
+    "react-native-safe-area-context": "~5.9.1"
+  },
+  "devDependencies": {
+    "@react-native/assets-registry": "0.87.1",
+    "@react-native/jest-preset": "0.87.1",
+    "jest": "^29.7.0",
+    "jest-expo": "57.0.5"
+  }
+}
