@@ -146,7 +146,7 @@ function createDefaultData(today) {
 }
 
 // Local scheduling mirror of recurrence.isScheduledOn working on Date objects.
-// Semantics must stay identical to recurrence.js.
+// Semantics must stay identical to recurrence.js (same weekStartsOn = 1).
 function isScheduledAt(freq, dtUtc) {
   switch (freq.kind) {
     case 'daily': return true
@@ -154,8 +154,20 @@ function isScheduledAt(freq, dtUtc) {
       const days = Array.isArray(freq.weekdays) && freq.weekdays.length ? freq.weekdays : [1, 2, 3, 4, 5]
       return days.includes(dtUtc.getUTCDay())
     }
-    case 'weekly':
-    case 'monthly': return true
+    case 'weekly': {
+      if (Array.isArray(freq.weekdays) && freq.weekdays.length) return freq.weekdays.includes(dtUtc.getUTCDay())
+      return true
+    }
+    case 'monthly': {
+      if (Array.isArray(freq.monthDays) && freq.monthDays.length) return freq.monthDays.includes(dtUtc.getUTCDate())
+      return true
+    }
+    case 'yearly': {
+      if (!freq.anchorDate) return true
+      const pad = n => String(n).padStart(2, '0')
+      const md = `${pad(dtUtc.getUTCMonth() + 1)}-${pad(dtUtc.getUTCDate())}`
+      return freq.anchorDate.slice(5) === md
+    }
     case 'every-n': {
       const n = Math.max(1, Number(freq.interval) || 1)
       const anchor = freq.anchorDate
@@ -163,6 +175,23 @@ function isScheduledAt(freq, dtUtc) {
       const [ay, am, ad] = anchor.split('-').map(Number)
       const diff = Math.round((dtUtc.getTime() - Date.UTC(ay, am - 1, ad)) / DAY_MS)
       return ((diff % n) + n) % n === 0
+    }
+    case 'every-n-weeks': {
+      const n = Math.max(1, Number(freq.interval) || 1)
+      const anchor = freq.anchorDate
+      if (!anchor) return true
+      // Monday-anchored week index, exactly like periodKey('every-n-weeks')
+      // in recurrence.js: weeks = floor(diffDays(startOfWeek(date), startOfWeek(anchor)) / 7)
+      const dowMonA = (dtUtc.getUTCDay() + 6) % 7
+      const aDt = new Date(anchor + 'T00:00:00Z')
+      const dowMonB = (aDt.getUTCDay() + 6) % 7
+      const wsA = Math.round(dtUtc.getTime() / DAY_MS) - dowMonA
+      const wsB = Math.round(aDt.getTime() / DAY_MS) - dowMonB
+      const wIdx = Math.floor((wsA - wsB) / 7)
+      const phase = ((wIdx % n) + n) % n
+      if (phase !== 0) return false
+      if (Array.isArray(freq.weekdays) && freq.weekdays.length) return freq.weekdays.includes(dtUtc.getUTCDay())
+      return true
     }
     default: return false
   }

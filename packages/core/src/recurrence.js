@@ -6,10 +6,17 @@
 // Data model (all user-editable — nothing here is burned into the UI):
 //   frequency = {
 //     id, key, label, icon, color,
-//     kind: 'daily' | 'weekdays' | 'weekly' | 'monthly' | 'every-n',
+//     kind: 'daily' | 'weekdays' | 'weekly' | 'monthly' | 'every-n'
+//          | 'every-n-weeks' | 'yearly',
 //     weekdays?: [0..6]   // used by kind 'weekdays' (0 = Sunday)
-//     interval?: number    // used by kind 'every-n' (every N days)
+//                          // and by 'weekly'/'every-n-weeks' to pin due days
+//     monthDays?: [1..31]  // used by kind 'monthly' to pin due days of month
+//     interval?: number    // used by 'every-n' (every N days) and
+//                          // 'every-n-weeks' (every N weeks)
+//     anchorDate?: 'YYYY-MM-DD' // phase for 'every-n' / 'every-n-weeks'
 //     timesPerPeriod?: 1   // goal habits: how many completions "count" per period
+//     timesPerDay?: 1      // e.g. "take medication twice a day" — on every
+//                          // scheduled day the habit is due this many times
 //     graceDays?: 0        // extra misses tolerated before the streak breaks
 //     system?: true        // restored by healing if deleted (still editable)
 //   }
@@ -108,7 +115,14 @@ function systemFrequencies() {
     { key: 'every-other-day', label: 'Every other day', icon: '🔁', color: '#2dd4bf', kind: 'every-n', interval: 2, timesPerPeriod: 1, graceDays: 1, system: true },
     { key: 'weekly', label: 'Once a week', icon: '📅', color: '#a78bfa', kind: 'weekly', timesPerPeriod: 1, graceDays: 0, system: true },
     { key: 'twice-weekly', label: 'Twice a week', icon: '✌️', color: '#f472b6', kind: 'weekly', timesPerPeriod: 2, graceDays: 0, system: true },
-    { key: 'monthly', label: 'Once a month', icon: '🗓️', color: '#22d3ee', kind: 'monthly', timesPerPeriod: 1, graceDays: 0, system: true }
+    { key: 'monthly', label: 'Once a month', icon: '🗓️', color: '#22d3ee', kind: 'monthly', timesPerPeriod: 1, graceDays: 0, system: true },
+    { key: 'thrice-weekly', label: 'Three times a week', icon: '🎯', color: '#fb7185', kind: 'weekly', timesPerPeriod: 3, graceDays: 0, system: true },
+    { key: 'mondays', label: 'Every Monday', icon: '1️⃣', color: '#38bdf8', kind: 'weekly', weekdays: [1], timesPerPeriod: 1, graceDays: 0, system: true },
+    { key: 'saturdays', label: 'Every Saturday', icon: '6️⃣', color: '#fb923c', kind: 'weekly', weekdays: [6], timesPerPeriod: 1, graceDays: 0, system: true },
+    { key: 'every-3-days', label: 'Every 3 days', icon: '🔁', color: '#c084fc', kind: 'every-n', interval: 3, timesPerPeriod: 1, graceDays: 1, system: true },
+    { key: 'every-2-weeks', label: 'Every 2 weeks', icon: '🔂', color: '#facc15', kind: 'every-n-weeks', interval: 2, timesPerPeriod: 1, graceDays: 7, system: true },
+    { key: 'twice-daily', label: 'Twice a day', icon: '✌️', color: '#2dd4bf', kind: 'daily', timesPerDay: 2, timesPerPeriod: 1, graceDays: 0, system: true },
+    { key: 'yearly', label: 'Once a year', icon: '🎂', color: '#f43f5e', kind: 'yearly', timesPerPeriod: 1, graceDays: 0, system: true }
   ]
 }
 
@@ -126,14 +140,49 @@ function isScheduledOn(frequency, dateStr, weekStartsOn = 1) {
         : [1, 2, 3, 4, 5]
       return days.includes(dayOfWeek(dateStr))
     }
-    case 'weekly':
-    case 'monthly':
-      return true // due within the whole period; any day inside counts
+    case 'weekly': {
+      // A weekly habit is due every day of its week UNLESS the user pinned
+      // specific weekdays ("every Monday", "Mon+Thu"), in which case only
+      // those days are scheduled.
+      if (Array.isArray(frequency.weekdays) && frequency.weekdays.length) {
+        return frequency.weekdays.includes(dayOfWeek(dateStr))
+      }
+      return true
+    }
+    case 'monthly': {
+      // Due all month unless specific days-of-month were pinned (e.g. the
+      // 1st and the 15th). Months shorter than a pinned day just skip it.
+      if (Array.isArray(frequency.monthDays) && frequency.monthDays.length) {
+        const { d } = parseYmd(dateStr)
+        return frequency.monthDays.includes(d)
+      }
+      return true
+    }
+    case 'yearly': {
+      // Due all year unless anchored — then only the anniversary window
+      // (same month/day as the anchor) is scheduled.
+      const anchor = frequency.anchorDate
+      if (!anchor) return true
+      return dateStr.slice(5) === anchor.slice(5)
+    }
     case 'every-n': {
       const n = Math.max(1, Number(frequency.interval) || 1)
       const anchor = frequency.anchorDate
       if (!anchor) return true
       return ((diffDays(dateStr, anchor) % n) + n) % n === 0
+    }
+    case 'every-n-weeks': {
+      const n = Math.max(1, Number(frequency.interval) || 1)
+      const anchor = frequency.anchorDate
+      if (!anchor) return true
+      const weeks = Math.floor(diffDays(dateStr, anchor) / 7)
+      const phase = ((weeks % n) + n) % n
+      if (phase !== 0) return false
+      // In its due week: all days, or only the pinned weekdays.
+      if (Array.isArray(frequency.weekdays) && frequency.weekdays.length) {
+        return frequency.weekdays.includes(dayOfWeek(dateStr))
+      }
+      return true
     }
     default:
       return false
@@ -146,8 +195,17 @@ function periodKey(frequency, dateStr, weekStartsOn = 1) {
   switch (frequency && frequency.kind) {
     case 'weekly':
       return `${isoWeekYear(dateStr)}-W${String(isoWeek(dateStr)).padStart(2, '0')}`
+    case 'every-n-weeks': {
+      const n = Math.max(1, Number(frequency.interval) || 1)
+      const anchor = frequency.anchorDate || startOfWeek(dateStr, weekStartsOn)
+      const weeks = Math.floor(diffDays(startOfWeek(dateStr, weekStartsOn), startOfWeek(anchor, weekStartsOn)) / 7)
+      const idx = Math.floor(weeks / n)
+      return `every${n}w:${idx}`
+    }
     case 'monthly':
       return dateStr.slice(0, 7)
+    case 'yearly':
+      return dateStr.slice(0, 4)
     case 'every-n': {
       const n = Math.max(1, Number(frequency.interval) || 1)
       const anchor = frequency.anchorDate || dateStr
@@ -166,8 +224,19 @@ function periodLabel(frequency, dateStr, weekStartsOn = 1) {
       const e = endOfWeek(dateStr, weekStartsOn)
       return `${s.slice(5)} → ${e.slice(5)}`
     }
+    case 'every-n-weeks': {
+      const n = Math.max(1, Number(frequency.interval) || 1)
+      const anchor = frequency.anchorDate || dateStr
+      const pk = periodKey(frequency, dateStr, weekStartsOn)
+      const idx = Number(pk.split(':')[1])
+      const start = addDays(startOfWeek(anchor, weekStartsOn), idx * n * 7)
+      const end = addDays(start, n * 7 - 1)
+      return `${start.slice(5)} → ${end.slice(5)}`
+    }
     case 'monthly':
       return dateStr.slice(0, 7)
+    case 'yearly':
+      return dateStr.slice(0, 4)
     default:
       return dateStr
   }
@@ -188,7 +257,11 @@ function countDoneInPeriod(habit, frequency, completionsByHabit, dateStr, weekSt
 // { scheduled, done, goal, remaining, satisfied, notDueToday, periodLabel }
 function evaluateHabitStatus(habit, frequency, completionsByHabit, dateStr, weekStartsOn = 1) {
   const scheduled = isScheduledOn(frequency, dateStr, weekStartsOn)
-  const goal = Math.max(1, Number(frequency && frequency.timesPerPeriod) || 1)
+  // timesPerDay multiplies the bar over the whole period: "twice a day"
+  // inside a week cadence means 2 × timesPerPeriod completions per week.
+  const perDay = Math.max(1, Number(frequency && frequency.timesPerDay) || 1)
+  const baseGoal = Math.max(1, Number(frequency && frequency.timesPerPeriod) || 1)
+  const goal = baseGoal * perDay
   const done = countDoneInPeriod(habit, frequency, completionsByHabit, dateStr, weekStartsOn)
   const remaining = Math.max(0, goal - done)
   return {
@@ -211,7 +284,12 @@ function evaluateHabitStatus(habit, frequency, completionsByHabit, dateStr, week
 function calculateStreak(habit, frequency, completionsByHabit, today, weekStartsOn = 1) {
   if (!frequency) return 0
   const grace = Math.max(0, Number(frequency.graceDays) || 0)
-  const doneDates = new Set((completionsByHabit[habit.id] || []).map(c => c.date))
+  const perDay = Math.max(1, Number(frequency.timesPerDay) || 1)
+  const doneDates = {}
+  for (const c of completionsByHabit[habit.id] || []) {
+    doneDates[c.date] = (doneDates[c.date] || 0) + 1
+  }
+  const daySatisfied = d => (doneDates[d] || 0) >= perDay
 
   if (frequency.kind === 'daily' || frequency.kind === 'weekdays') {
     let streak = 0
@@ -219,7 +297,7 @@ function calculateStreak(habit, frequency, completionsByHabit, today, weekStarts
     let cursor = today
     for (let guard = 0; guard < 3660; guard++) {
       if (isScheduledOn(frequency, cursor, weekStartsOn)) {
-        if (doneDates.has(cursor)) {
+        if (daySatisfied(cursor)) {
           streak++
         } else if (cursor === today) {
           // today pending — does not break the streak
@@ -240,7 +318,7 @@ function calculateStreak(habit, frequency, completionsByHabit, today, weekStarts
     let cursor = today
     for (let guard = 0; guard < 3660; guard++) {
       if (isScheduledOn(frequency, cursor, weekStartsOn)) {
-        if (doneDates.has(cursor)) streak++
+        if (daySatisfied(cursor)) streak++
         else if (cursor !== today) break
       }
       cursor = addDays(cursor, -1)
@@ -249,16 +327,17 @@ function calculateStreak(habit, frequency, completionsByHabit, today, weekStarts
     return streak
   }
 
-  // weekly / monthly: consecutive satisfied periods ending with the current one
+  // weekly / every-n-weeks / monthly / yearly: consecutive satisfied
+  // PERIODS ending with the current one
   const doneCounts = {}
   for (const c of completionsByHabit[habit.id] || []) {
     const k = periodKey(frequency, c.date, weekStartsOn)
     doneCounts[k] = (doneCounts[k] || 0) + 1
   }
-  const goal = Math.max(1, Number(frequency.timesPerPeriod) || 1)
+  const goal = Math.max(1, Number(frequency.timesPerPeriod) || 1) * perDay
   let streak = 0
   let cursor = today
-  const step = frequency.kind === 'weekly' ? 7 : 28
+  const step = frequency.kind === 'weekly' ? 7 : frequency.kind === 'every-n-weeks' ? 7 * Math.max(1, Number(frequency.interval) || 1) : frequency.kind === 'yearly' ? 365 : 28
   const currentPk = periodKey(frequency, today, weekStartsOn)
   for (let i = 0; i < 120; i++) {
     const k = periodKey(frequency, cursor, weekStartsOn)
@@ -305,6 +384,71 @@ function indexCompletions(completions) {
   return byHabit
 }
 
+// Human-readable cadence sentence for chips/dialogs, built from the
+// frequency DATA (not the label) so user-edited cadences describe correctly:
+//   "Every day", "Every Mon · Thu", "3× per week", "Twice a day",
+//   "Every 2 weeks on Sat", "Monthly on the 1st, 15th" …
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const TIMES_WORDS = ['', '', 'Twice', 'Thrice', '4 times', '5 times', '6 times']
+
+function timesWord(n) {
+  return TIMES_WORDS[n] || `${n} times`
+}
+
+function ordinalDay(d) {
+  if (d >= 11 && d <= 13) return `${d}th`
+  return `${d}` + (['th', 'st', 'nd', 'rd'][d % 10] || 'th')
+}
+
+function describeFrequency(frequency) {
+  if (!frequency) return ''
+  const f = frequency
+  const days = Array.isArray(f.weekdays) && f.weekdays.length
+    ? [...f.weekdays].sort((a, b) => a - b).map(d => DAY_NAMES[d]).join(' · ')
+    : null
+  let base
+  switch (f.kind) {
+    case 'daily': base = 'Every day'; break
+    case 'weekdays': base = days ? `Every ${days}` : 'Weekdays'; break
+    case 'weekly': base = days ? `Weekly on ${days}` : 'Weekly'; break
+    case 'monthly': {
+      const md = Array.isArray(f.monthDays) && f.monthDays.length
+        ? [...f.monthDays].sort((a, b) => a - b).map(ordinalDay).join(', ')
+        : null
+      base = md ? `Monthly on the ${md}` : 'Monthly'
+      break
+    }
+    case 'yearly': base = f.anchorDate ? `Yearly (${f.anchorDate.slice(5)})` : 'Yearly'; break
+    case 'every-n': base = `Every ${Math.max(1, Number(f.interval) || 1)} days`; break
+    case 'every-n-weeks': {
+      base = `Every ${Math.max(1, Number(f.interval) || 1)} weeks`
+      if (days) base += ` on ${days}`
+      break
+    }
+    default: base = String(f.label || '')
+  }
+  const perDay = Math.max(1, Number(f.timesPerDay) || 1)
+  if (perDay > 1) base += ` — ${timesWord(perDay).toLowerCase()} a day`
+  else if (Math.max(1, Number(f.timesPerPeriod) || 1) > 1 && (f.kind === 'weekly' || f.kind === 'every-n-weeks')) {
+    base = `${timesWord(Number(f.timesPerPeriod))} per week` + (days ? ` (${days})` : '')
+  } else if (Math.max(1, Number(f.timesPerPeriod) || 1) > 1 && f.kind === 'monthly') {
+    base = `${timesWord(Number(f.timesPerPeriod))} per month`
+  }
+  return base.charAt(0).toUpperCase() + base.slice(1)
+}
+
+// The next `count` dates (starting at `from`, inclusive) on which the habit
+// is scheduled. Used by UIs to preview "next up: Mon, Thu…" and by tests.
+function nextDueDates(frequency, from, count = 7, weekStartsOn = 1) {
+  const out = []
+  let cursor = from
+  for (let guard = 0; guard < 800 && out.length < count; guard++) {
+    if (isScheduledOn(frequency, cursor, weekStartsOn)) out.push(cursor)
+    cursor = addDays(cursor, 1)
+  }
+  return out
+}
+
 module.exports = {
   parseYmd,
   toUtc,
@@ -321,6 +465,8 @@ module.exports = {
   isScheduledOn,
   periodKey,
   periodLabel,
+  describeFrequency,
+  nextDueDates,
   countDoneInPeriod,
   evaluateHabitStatus,
   calculateStreak,
