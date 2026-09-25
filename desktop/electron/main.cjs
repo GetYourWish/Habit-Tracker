@@ -73,6 +73,18 @@ function getAppIconPath(iconTheme) {
   return getIconPathForTheme(iconTheme || 'gradient');
 }
 
+/** Read the persisted icon-theme preference (single cached read of app-state.json). */
+async function readSavedIconTheme() {
+  try {
+    const state = cachedAppState || JSON.parse(await fs.readFile(appStatePath, 'utf8').catch(() => '{}'));
+    cachedAppState = state;
+    if (state.iconTheme && ICON_THEMES.includes(state.iconTheme)) return state.iconTheme;
+  } catch (e) {
+    console.log('Could not read icon theme from app state:', e.message);
+  }
+  return null;
+}
+
 // Load saved data path or set default - uses SyncThis folder next to executable per spec
 async function initializeDataPath() {
   try {
@@ -502,6 +514,23 @@ ipcMain.handle('get-icon-themes', () => {
     preview: getIconPathForTheme(theme).replace('.ico', '.png'),
   }));
   return cachedIconThemes;
+});
+
+// IPC: swap the window/taskbar icon to a theme without recreating the window.
+ipcMain.handle('set-icon-theme', async (event, iconTheme) => {
+  if (!ICON_THEMES.includes(iconTheme)) return { success: false, error: 'Unknown theme' };
+  try {
+    const state = cachedAppState || JSON.parse(await fs.readFile(appStatePath, 'utf8').catch(() => '{}'));
+    state.iconTheme = iconTheme;
+    cachedAppState = state;
+    await fs.writeFile(appStatePath, JSON.stringify(state, null, 2));
+  } catch (e) {
+    console.error('Failed to save icon theme:', e);
+  }
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.setIcon(getAppIconPath(iconTheme));
+  }
+  return { success: true };
 });
 
 // IPC: reload the window with a new icon (called after user picks a different icon)

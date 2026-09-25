@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld('api', {
   checkConflicts: (filePath) => ipcRenderer.invoke('check-conflicts', { filePath }),
   saveImage: (dataUrl, suggestedName) => ipcRenderer.invoke('save-image', { dataUrl, suggestedName }),
   getIconThemes: () => ipcRenderer.invoke('get-icon-themes'),
+  setIconTheme: (iconTheme) => ipcRenderer.invoke('set-icon-theme', iconTheme),
   reloadWithIcon: (iconTheme) => ipcRenderer.invoke('reload-with-icon', iconTheme),
   refreshData: () => ipcRenderer.invoke('refresh-data'),
   setWatcherEnabled: (enabled) => ipcRenderer.invoke('set-watcher-enabled', enabled),
