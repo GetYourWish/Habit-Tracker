@@ -59,6 +59,11 @@ const ICON_PREVIEWS = [
   },
 ]
 
+// Recursive spiral blades — mirrors build/icons/*.svg (rotate 42°, scale 0.78 per step)
+const SPIRAL_BLADES = Array.from({ length: 9 }, (_, n) => ({
+  transform: `rotate(${n * 42}) scale(${Math.pow(0.78, n).toFixed(3)})`,
+}))
+
 function Settings({ data, onSave, dataFile, conflicts, onBackupNow, onOpenFolder, onChangeDataFolder, autoSync, onToggleAutoSync }) {
   const [activeTab, setActiveTab] = useState('data')
   const [moveStatus, setMoveStatus] = useState(null) // null | 'choosing' | 'confirming' | 'moving'
@@ -101,24 +106,22 @@ function Settings({ data, onSave, dataFile, conflicts, onBackupNow, onOpenFolder
     const current = settings.appIcon || 'gradient'
     if (iconId === current || iconSwitching) return
     setIconSwitching(true)
-    // Save preference to tracker data IMMEDIATELY (bypass debounce)
-    // The window will be destroyed by reloadWithIcon, so a debounced save would never flush
-    const updatedData = {
+    // Persist preference to tracker data (debounced save is fine now —
+    // the window is no longer recreated to swap the icon)
+    onSave({
       ...data,
       settings: {
         ...settings,
         appIcon: iconId
       },
       meta: { ...data.meta, updatedAt: new Date().toISOString() }
-    }
+    })
+    // Swap the live window/taskbar icon without a reload; fall back to the
+    // legacy reload path only if the new IPC channel is unavailable.
     try {
-      await window.api.saveData(updatedData)
-    } catch (e) {
-      console.error('Failed to save icon preference:', e)
-    }
-    // Tell main process to swap the window icon
-    try {
-      if (window.api?.reloadWithIcon) {
+      if (window.api?.setIconTheme) {
+        await window.api.setIconTheme(iconId)
+      } else if (window.api?.reloadWithIcon) {
         await window.api.reloadWithIcon(iconId)
       }
     } catch (e) {
@@ -620,9 +623,20 @@ function Settings({ data, onSave, dataFile, conflicts, onBackupNow, onOpenFolder
                     >
                       <div className="icon-picker-preview" style={{ background: `linear-gradient(135deg, ${icon.colors[0]}, ${icon.colors[1]})` }}>
                         <svg width="40" height="40" viewBox="0 0 256 256" fill="none">
-                          <rect x="60" y="150" width="34" height="76" rx="10" fill="white" opacity="0.9"/>
-                          <rect x="111" y="108" width="34" height="118" rx="10" fill="white"/>
-                          <rect x="162" y="66" width="34" height="160" rx="10" fill="white" opacity="0.85"/>
+                          <g transform="translate(128 128)">
+                            {SPIRAL_BLADES.map((blade, i) => (
+                              <g key={i} transform={blade.transform}>
+                                <rect x="-9" y="-88" width="18" height="88" rx="9" fill="white" opacity={i === 0 ? 1 : 0.9 - i * 0.05} />
+                              </g>
+                            ))}
+                            {/* start spark */}
+                            <g fill="white">
+                              <circle cx="0" cy="0" r="7" />
+                              {[0, 60, 120, 180, 240, 300].map((deg) => (
+                                <rect key={deg} x="-2.5" y="-24" width="5" height="17" rx="2.5" transform={`rotate(${deg})`} />
+                              ))}
+                            </g>
+                          </g>
                         </svg>
                       </div>
                       <div className="icon-picker-label">

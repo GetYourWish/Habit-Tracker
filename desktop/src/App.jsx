@@ -370,6 +370,10 @@ function App() {
   return (
     <div className="app">
       <nav className="nav">
+        <div className="nav-brand" title="Habit Tracker — build routines that stick">
+          <RecursiveMark size={24} spin />
+          <span className="nav-brand-name">Habit<span>Tracker</span></span>
+        </div>
         <button 
           className={`nav-item ${currentView === 'board' ? 'active' : ''}`}
           onClick={() => {
