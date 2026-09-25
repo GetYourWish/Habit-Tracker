@@ -5,7 +5,6 @@
 // treated as 1 (legacy files).
 
 const { createDefaultData } = require('./defaults')
-const { systemFrequencies } = require('./recurrence')
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
@@ -23,12 +22,6 @@ function checkSchemaVersion(data) {
   return { ok: true }
 }
 
-let healCounter = 0
-function healId(prefix) {
-  healCounter += 1
-  return `${prefix}-healed-${healCounter.toString(36)}-${Date.now().toString(36)}`
-}
-
 function str(v, fallback = '') {
   return typeof v === 'string' ? v : (v == null ? fallback : String(v))
 }
@@ -38,113 +31,124 @@ function str(v, fallback = '') {
 // deep-equal structure. In particular meta.updatedAt is NOT touched here:
 // bumping it on every load caused a rewrite on every start (and endless
 // Syncthing churn). Mutating actions bump updatedAt explicitly when saving.
+//
+// Normative behavior is documented in SCHEMA.md ("Healing") and locked by
+// the golden fixtures (tests/fixture-contract.cjs). Changes here are a
+// BREAKING change to the drift contract.
 function validateAndHealData(data) {
   if (!data) {
     return createDefaultData()
   }
 
-  const healed = { ...data }
+  // Work on a deep copy so healing NEVER mutates the caller's object.
+  // Structured clone keeps key insertion order, which matters because the
+  // main process persists only when the serialized output differs from what
+  // was read (byte-identical healing of clean files => no rewrite).
+  const healed = JSON.parse(JSON.stringify(data))
 
-  // Ensure required sections exist
+  // Ensure required sections exist. New keys are APPENDED only when the
+  // source key is absent — never reordered or injected in the middle — so
+  // healing a clean file re-serializes byte-identically (anti-churn rule).
   if (!healed.schemaVersion) healed.schemaVersion = 1
   if (!healed.meta || typeof healed.meta !== 'object') {
     healed.meta = { createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
   }
   if (!healed.settings || typeof healed.settings !== 'object') healed.settings = {}
-  if (!Array.isArray(healed.frequencies)) healed.frequencies = []
   if (!Array.isArray(healed.categories)) healed.categories = []
-  if (!Array.isArray(healed.habits)) healed.habits = []
   if (!Array.isArray(healed.board)) healed.board = []
-  if (!Array.isArray(healed.completions)) healed.completions = []
+  if (!Array.isArray(healed.difficulties)) healed.difficulties = []
+  if (!Array.isArray(healed.markers)) healed.markers = []
+  if (!Array.isArray(healed.tasks)) healed.tasks = []
+  if (!Array.isArray(healed.workingOn)) healed.workingOn = []
   if (!Array.isArray(healed.logs)) healed.logs = []
 
-  // ---- frequencies -------------------------------------------------------
-  // Restore missing SYSTEM cadences (matched by key). Existing entries are
-  // user-owned: edits are never overwritten. A deleted system frequency comes
-  // back so habits referencing it keep working.
-  const freqKeySet = new Set()
-  healed.frequencies = healed.frequencies.filter(f => f && typeof f === 'object' && f.id && !freqKeySet.has(str(f.key) || `__noid${freqKeySet.size}`) && freqKeySet.add(str(f.key)))
-  for (const sys of systemFrequencies()) {
-    if (!healed.frequencies.some(f => str(f.key) === sys.key)) {
-      healed.frequencies.push({ ...sys, id: healId('freq'), createdAt: new Date().toISOString() })
+  // ---- completions (habit model) -------------------------------------------
+  // Only touch completions/habits when the file actually uses the habit
+  // model — legacy task-board files must not gain a `completions` key, or
+  // healing would re-serialize differently and trigger rewrite churn.
+  if (Array.isArray(healed.habits)) {
+    if (!Array.isArray(healed.completions)) healed.completions = []
+    const habitIds = new Set(
+      healed.habits.filter(h => h && typeof h === 'object' && h.id).map(h => h.id)
+    )
+    const seenComp = new Set()
+    healed.completions = healed.completions.filter(c => {
+      if (!c || typeof c !== 'object' || !c.id || seenComp.has(c.id)) return false
+      if (!habitIds.has(c.habitId)) return false
+      if (typeof c.date !== 'string' || !DATE_RE.test(c.date)) return false
+      seenComp.add(c.id)
+      return true
+    })
+    healed.completions.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+
+    // Recompute derived lastCompletedDate from history (cross-device merge
+    // fix). Only maintained for habits that already carry the field — adding
+    // it to seeded/legacy habits would break the byte-identical heal rule.
+    const latestByHabit = {}
+    for (const c of healed.completions) {
+      if (!latestByHabit[c.habitId] || c.date >= latestByHabit[c.habitId]) latestByHabit[c.habitId] = c.date
+    }
+    for (const habit of healed.habits) {
+      if (!habit || typeof habit !== 'object' || !habit.id) continue
+      if (!('lastCompletedDate' in habit)) continue
+      const derived = latestByHabit[habit.id] || null
+      if (habit.lastCompletedDate !== derived) habit.lastCompletedDate = derived
     }
   }
-  const freqIds = new Set(healed.frequencies.map(f => f.id))
-  const defaultFreq = healed.frequencies.find(f => str(f.key) === 'daily') || healed.frequencies[0]
 
-  // ---- habits ------------------------------------------------------------
-  healed.habits = healed.habits.filter(h => h && typeof h === 'object' && h.id)
-  for (const habit of healed.habits) {
-    habit.title = str(habit.title)
-    habit.icon = str(habit.icon, '✨')
-    if (!freqIds.has(habit.frequencyId)) habit.frequencyId = defaultFreq ? defaultFreq.id : null
-    if (typeof habit.archived !== 'boolean') habit.archived = !!habit.completed // legacy field name
+  // ---- tasks ---------------------------------------------------------------
+  // Coerce task text to string (legacy files may hold numbers/null).
+  // Malformed entries are dropped from references but preserved in place
+  // inside `tasks` itself (data retention; healing must not silently delete
+  // user content it does not understand).
+  const validTasks = healed.tasks.filter(t => t && typeof t === 'object' && t.id)
+  for (const task of validTasks) {
+    task.text = str(task.text)
   }
-  const habitIds = new Set(healed.habits.map(h => h.id))
+  const taskIds = new Set(validTasks.map(t => t.id))
+  const activeTaskIds = new Set(validTasks.filter(t => !t.completion).map(t => t.id))
 
-  // categories: drop malformed / duplicates
-  const catNames = new Set()
-  healed.categories = healed.categories.filter(c => {
-    if (!c || typeof c !== 'object' || !c.id) return false
-    const n = str(c.name)
-    if (catNames.has(n)) return false
-    catNames.add(n)
-    c.name = n
-    return true
-  })
-  const catIds = new Set(healed.categories.map(c => c.id))
-  for (const habit of healed.habits) {
-    if (habit.categoryId != null && !catIds.has(habit.categoryId)) habit.categoryId = null
-  }
-
-  // ---- completions ---------------------------------------------------------
-  // Drop orphans (unknown habit or bad date), de-duplicate ids, sort
-  // chronologically (stable by id) so both apps serialize identically.
-  const seenComp = new Set()
-  healed.completions = healed.completions.filter(c => {
-    if (!c || typeof c !== 'object' || !c.id || seenComp.has(c.id)) return false
-    if (!habitIds.has(c.habitId)) return false
-    if (typeof c.date !== 'string' || !DATE_RE.test(c.date)) return false
-    seenComp.add(c.id)
-    return true
-  })
-  healed.completions.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
-
-  // Recompute derived lastCompletedDate from history (cross-device merge fix)
-  const latestByHabit = {}
-  for (const c of healed.completions) {
-    if (!latestByHabit[c.habitId] || c.date >= latestByHabit[c.habitId]) latestByHabit[c.habitId] = c.date
-  }
-  for (const habit of healed.habits) {
-    const derived = latestByHabit[habit.id] || null
-    if (habit.lastCompletedDate !== derived) habit.lastCompletedDate = derived
-  }
+  // ---- markers -------------------------------------------------------------
+  const markerIds = new Set(
+    healed.markers.filter(m => m && typeof m === 'object' && m.id).map(m => m.id)
+  )
 
   // ---- board ---------------------------------------------------------------
-  // Keep habit rows pointing at existing, non-archived habits; drop legacy
-  // task/marker rows (their data stays in `tasks` untouched for rollback).
-  const boardHabitIds = new Set()
+  // Drop malformed rows, rows pointing at missing tasks / completed tasks /
+  // missing markers, and duplicate references. Order of survivors is kept.
+  const seenTaskRefs = new Set()
+  const seenMarkerRefs = new Set()
   healed.board = healed.board.filter(item => {
     if (!item || typeof item !== 'object') return false
-    if (item.type === 'habit') {
-      const id = item.habitId || item.taskId // tolerate legacy shape once
-      if (!id || !habitIds.has(id)) return false
-      if (boardHabitIds.has(id)) return false
-      boardHabitIds.add(id)
-      item.habitId = id
-      delete item.taskId
+    if (item.type === 'task') {
+      const id = item.taskId
+      if (!id || !taskIds.has(id) || !activeTaskIds.has(id)) return false
+      if (seenTaskRefs.has(id)) return false
+      seenTaskRefs.add(id)
+      return true
+    }
+    if (item.type === 'marker') {
+      const id = item.markerId
+      if (!id || !markerIds.has(id)) return false
+      if (seenMarkerRefs.has(id)) return false
+      seenMarkerRefs.add(id)
       return true
     }
     return false
   })
-  // Every visible habit belongs on the board.
-  for (const habit of healed.habits) {
-    if (!habit.archived && !boardHabitIds.has(habit.id)) {
-      healed.board.push({ type: 'habit', habitId: habit.id })
+  // Every ACTIVE task belongs on the board; heal-inserted entries omit `id`.
+  for (const task of validTasks) {
+    if (!task.completion && !seenTaskRefs.has(task.id)) {
+      healed.board.push({ type: 'task', taskId: task.id })
+      seenTaskRefs.add(task.id)
     }
   }
 
-  // logs capped to prevent unbounded growth
+  // ---- workingOn -----------------------------------------------------------
+  // Drop ids whose task vanished or is already completed.
+  healed.workingOn = healed.workingOn.filter(id => typeof id === 'string' && activeTaskIds.has(id))
+
+  // logs capped to prevent unbounded growth (keep newest 500)
   if (healed.logs.length > 500) {
     healed.logs = healed.logs.slice(healed.logs.length - 500)
   }

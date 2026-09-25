@@ -159,8 +159,9 @@ async function createBackup() {
     
     // Clean up old backups (keep ~20 most recent)
     const files = await fs.readdir(backupDir);
-    const jsonFiles = files.filter(f => f.startsWith(('habit-') && f.endsWith('.json'))
-                          .sort();
+    const jsonFiles = files
+      .filter((f) => f.startsWith('habit-') && f.endsWith('.json'))
+      .sort();
     
     if (jsonFiles.length > 20) {
       const toDelete = jsonFiles.slice(0, jsonFiles.length - 20);
