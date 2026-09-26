@@ -23,8 +23,19 @@
 //   habit.frequencyId points at one of these. Changing the frequency of a
 //   habit never rewrites history; streaks/due-ness are always recomputed
 //   from the completion log + current frequencies.
+//
+//   A habit may ALSO override the per-day count per habit (see times.js):
+//     habit.timesPerDay  wins over frequency.timesPerDay
+//     habit.timesOfDay   one time-of-day slot per occurrence
+//                         (['morning','evening'] for 2× brushing)
+//   completions may carry `slot` — which occurrence they satisfied.
 
 const MS_DAY = 86400000
+const {
+  effectiveTimesPerDay,
+  resolveTimesOfDay,
+  countSlotDoneOnDate
+} = require('./times')
 
 // ---------- date helpers (self-contained, UTC/ISO-based) ----------
 
@@ -254,16 +265,32 @@ function countDoneInPeriod(habit, frequency, completionsByHabit, dateStr, weekSt
 }
 
 // ---------- status for one habit on one date ----------
-// { scheduled, done, goal, remaining, satisfied, notDueToday, periodLabel }
+// { scheduled, done, goal, remaining, satisfied, notDueToday, periodLabel,
+//   perDay, slots }
+//   perDay  — effective times per day (habit override beats frequency)
+//   slots   — [{ key, done, satisfied }] one entry per declared time-of-day
+//             slot; [] when the habit has no slot preferences. A slot is
+//             satisfied when at least one completion that date carries it.
+//             Slotless ("anytime") completions still count toward `done`.
 function evaluateHabitStatus(habit, frequency, completionsByHabit, dateStr, weekStartsOn = 1) {
   const scheduled = isScheduledOn(frequency, dateStr, weekStartsOn)
   // timesPerDay multiplies the bar over the whole period: "twice a day"
   // inside a week cadence means 2 × timesPerPeriod completions per week.
-  const perDay = Math.max(1, Number(frequency && frequency.timesPerDay) || 1)
+  // The HABIT's own override (habit.timesPerDay) wins over the frequency
+  // default so two habits on the same cadence can have different per-day
+  // counts without duplicating catalog entries.
+  const perDay = effectiveTimesPerDay(habit, frequency)
   const baseGoal = Math.max(1, Number(frequency && frequency.timesPerPeriod) || 1)
   const goal = baseGoal * perDay
   const done = countDoneInPeriod(habit, frequency, completionsByHabit, dateStr, weekStartsOn)
   const remaining = Math.max(0, goal - done)
+  const dayCompletions = (completionsByHabit[habit.id] || []).filter(c => c.date === dateStr)
+  const slotKeys = resolveTimesOfDay(habit, frequency)
+  const slots = slotKeys.filter(k => k).map(key => ({
+    key,
+    done: countSlotDoneOnDate(habit, dayCompletions, dateStr, key),
+    satisfied: dayCompletions.some(c => c.slot === key)
+  }))
   return {
     scheduled,
     done,
@@ -271,7 +298,9 @@ function evaluateHabitStatus(habit, frequency, completionsByHabit, dateStr, week
     remaining,
     satisfied: done >= goal,
     notDueToday: !scheduled && goal <= 1,
-    periodLabel: periodLabel(frequency, dateStr, weekStartsOn)
+    periodLabel: periodLabel(frequency, dateStr, weekStartsOn),
+    perDay,
+    slots
   }
 }
 
@@ -284,7 +313,9 @@ function evaluateHabitStatus(habit, frequency, completionsByHabit, dateStr, week
 function calculateStreak(habit, frequency, completionsByHabit, today, weekStartsOn = 1) {
   if (!frequency) return 0
   const grace = Math.max(0, Number(frequency.graceDays) || 0)
-  const perDay = Math.max(1, Number(frequency.timesPerDay) || 1)
+  // habit override wins (times.js) — "Twice a day" cadence with a habit
+  // pinned to 3× per day means 3 completions satisfy a day.
+  const perDay = effectiveTimesPerDay(habit, frequency)
   const doneDates = {}
   for (const c of completionsByHabit[habit.id] || []) {
     doneDates[c.date] = (doneDates[c.date] || 0) + 1
@@ -388,6 +419,8 @@ function indexCompletions(completions) {
 // frequency DATA (not the label) so user-edited cadences describe correctly:
 //   "Every day", "Every Mon · Thu", "3× per week", "Twice a day",
 //   "Every 2 weeks on Sat", "Monthly on the 1st, 15th" …
+// Pass the habit to reflect per-habit overrides ("3 times a day" on an
+// every-day cadence); omit it for the frequency alone.
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const TIMES_WORDS = ['', '', 'Twice', 'Thrice', '4 times', '5 times', '6 times']
 
@@ -400,7 +433,7 @@ function ordinalDay(d) {
   return `${d}` + (['th', 'st', 'nd', 'rd'][d % 10] || 'th')
 }
 
-function describeFrequency(frequency) {
+function describeFrequency(frequency, habit) {
   if (!frequency) return ''
   const f = frequency
   const days = Array.isArray(f.weekdays) && f.weekdays.length
@@ -427,7 +460,7 @@ function describeFrequency(frequency) {
     }
     default: base = String(f.label || '')
   }
-  const perDay = Math.max(1, Number(f.timesPerDay) || 1)
+  const perDay = effectiveTimesPerDay(habit, frequency)
   if (perDay > 1) base += ` — ${timesWord(perDay).toLowerCase()} a day`
   else if (Math.max(1, Number(f.timesPerPeriod) || 1) > 1 && (f.kind === 'weekly' || f.kind === 'every-n-weeks')) {
     base = `${timesWord(Number(f.timesPerPeriod))} per week` + (days ? ` (${days})` : '')

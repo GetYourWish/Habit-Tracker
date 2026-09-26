@@ -110,3 +110,58 @@ describe('validateAndHealData (Phase 2: no updatedAt churn, idempotent healing)'
     expect(healed.meta.updatedAt).toBe(FIXED_TS)
   })
 })
+
+describe('validateAndHealData (time-of-day slot hygiene on completions)', () => {
+  const FIXED_TS = '2026-08-01T10:00:00.000Z'
+
+  function habitFile(completions) {
+    return {
+      schemaVersion: 1,
+      meta: { createdAt: FIXED_TS, updatedAt: FIXED_TS },
+      settings: {},
+      habits: [{ id: 'h1', title: 'Brush teeth', frequencyId: 'f1' }],
+      frequencies: [{ id: 'f1', key: 'twice-daily', label: 'Twice a day', kind: 'daily', timesPerDay: 2, timesPerPeriod: 1, graceDays: 0 }],
+      board: [{ type: 'habit', habitId: 'h1' }],
+      completions,
+      logs: [],
+      workingOn: [],
+      difficulties: [],
+      markers: [],
+      tasks: []
+    }
+  }
+
+  it('keeps valid slot values untouched (byte-identical, no churn)', () => {
+    const file = habitFile([
+      { id: 'c1', habitId: 'h1', date: '2026-08-01', slot: 'morning' },
+      { id: 'c2', habitId: 'h1', date: '2026-08-01', slot: 'evening' }
+    ])
+    const healed = validateAndHealData(file)
+    expect(healed.completions.map(c => c.slot)).toEqual(['morning', 'evening'])
+    const healedTwice = validateAndHealData(healed)
+    expect(JSON.stringify(healedTwice)).toBe(JSON.stringify(healed))
+  })
+
+  it('drops INVALID slot values but never the completion itself (idempotent)', () => {
+    const file = habitFile([
+      { id: 'c1', habitId: 'h1', date: '2026-08-01', slot: 'brunch' },
+      { id: 'c2', habitId: 'h1', date: '2026-08-01', slot: 'morning' },
+      { id: 'c3', habitId: 'h1', date: '2026-08-01', slot: 42 }
+    ])
+    const healed = validateAndHealData(file)
+    expect(healed.completions).toHaveLength(3)
+    expect(healed.completions.map(c => c.slot)).toEqual([undefined, 'morning', undefined])
+    // idempotent: healing the healed output changes nothing
+    const healedTwice = validateAndHealData(healed)
+    expect(JSON.stringify(healedTwice)).toBe(JSON.stringify(healed))
+  })
+
+  it('preserves habit timesPerDay / timesOfDay fields untouched', () => {
+    const file = habitFile([])
+    file.habits[0].timesPerDay = 3
+    file.habits[0].timesOfDay = ['morning', 'afternoon', 'night']
+    const healed = validateAndHealData(file)
+    expect(healed.habits[0].timesPerDay).toBe(3)
+    expect(healed.habits[0].timesOfDay).toEqual(['morning', 'afternoon', 'night'])
+  })
+})

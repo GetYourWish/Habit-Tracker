@@ -187,7 +187,7 @@ describe('withTimeout', () => {
   test('timeout error carries an actionable message', async () => {
     await expect(
       withTimeout(() => new Promise(() => {}), 'Writing habit.json', 10)
-    ).rejects.toThrow(/Writing tracker\.json timed out.*Pick the folder again/)
+    ).rejects.toThrow(/Writing habit\.json timed out.*Pick the folder again/)
   })
 
   test('a synchronous throw inside the op rejects (lazy expo require safety)', async () => {
@@ -287,7 +287,7 @@ describe('createSafAdapter', () => {
     const adapter = createSafAdapter()
 
     test('bare file names (the real device shape) become full URIs', async () => {
-      mockLegacyState.baseDirNames = [('habit-backup-2026.json', ('habit-backup-2027.json']
+      mockLegacyState.baseDirNames = ['habit-backup-2026.json', 'habit-backup-2027.json']
       try {
         const uris = await adapter.appListDir('file://data/user/0/pt/docs/.backups/')
         expect(uris).toEqual([

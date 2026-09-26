@@ -1,26 +1,28 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import Board from './components/Board'
-import Reviews from './components/Reviews'
+import TodayView from './components/TodayView'
+import HabitsView from './components/HabitsView'
+import ReviewsView from './components/ReviewsView'
 import Settings from './components/Settings'
 import SetupScreen from './components/SetupScreen'
-import { WorkingOnMarker, WorkingOnPopup } from './components/WorkingOnMarker'
+import HabitEditor from './components/HabitEditor'
 import RecursiveMark from './components/RecursiveMark'
-import { validateAndHealData, generateId, calculateTaskScoreBreakdown, checkSchemaVersion } from '@habit-tracker/core'
+import { validateAndHealData, checkSchemaVersion, createDefaultData } from '@habit-tracker/core'
 import './App.css'
+import './components/habits.css'
 
 function App() {
-  const [currentView, setCurrentView] = useState('board')
+  const [currentView, setCurrentView] = useState('today')
   const [dataFile, setDataFile] = useState(null)
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [setupRequired, setSetupRequired] = useState(false)
   const [conflicts, setConflicts] = useState([])
-  // selectedDate is managed internally by Reviews — no need to lift it here
-  const [showWorkingOnPopup, setShowWorkingOnPopup] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [autoSync, setAutoSync] = useState(true)
   // Set when the data file was written by a newer app version (schemaVersion > 1)
   const [schemaError, setSchemaError] = useState(null)
+  // The habit editor (create when habit is null, edit when set)
+  const [editorHabit, setEditorHabit] = useState(undefined) // undefined = closed
 
   // Debounce save to avoid constant disk writes
   const saveTimeoutRef = useRef(null)
@@ -47,17 +49,17 @@ function App() {
     if (!autoSync) return // no listener when manual mode
 
     let unsubscribeFn = null
-    
+
     const setupListener = async () => {
       unsubscribeFn = window.api.onExternalChange(async (event) => {
         console.log('File changed externally:', event.payload)
         await loadData(true) // true = external change, preserve typing
       })
-      
+
       // Check for conflicts on initial load and periodically
       checkForConflicts()
     }
-    
+
     setupListener()
 
     return () => {
@@ -66,11 +68,11 @@ function App() {
       }
     }
   }, [dataFile, autoSync])
-  
+
   // Check for conflict files
   const checkForConflicts = useCallback(async () => {
     if (!dataFile) return
-    
+
     try {
       const conflictFiles = await window.api.checkConflicts(dataFile)
       if (conflictFiles && conflictFiles.length > 0) {
@@ -103,118 +105,109 @@ function App() {
 
   const loadData = async (filePath = dataFile, isExternalChange = false) => {
     if (!filePath) {
-      setLoading(false);
-      return;
+      setLoading(false)
+      return
     }
-    
+
     try {
-      const loadedData = await window.api.loadData();
-      
+      const loadedData = await window.api.loadData()
+
       // Handle null (file doesn't exist) - shouldn't happen after setup, but be safe
       if (!loadedData) {
-        console.warn('Loaded data is null, using default');
-        const healedData = validateAndHealData(null);
-        setData(healedData);
-        setLoading(false);
-        return;
+        console.warn('Loaded data is null, using default')
+        const healedData = validateAndHealData(null)
+        setData(healedData)
+        setLoading(false)
+        return
       }
 
       // Refuse files from newer app versions (never heal them downgraded).
       // Primary guard lives in the main process; this is defense in depth.
-      const schemaCheck = checkSchemaVersion(loadedData);
+      const schemaCheck = checkSchemaVersion(loadedData)
       if (!schemaCheck.ok) {
-        setSchemaError(schemaCheck.schemaVersion);
-        setLoading(false);
-        return;
+        setSchemaError(schemaCheck.schemaVersion)
+        setLoading(false)
+        return
       }
-      
+
       // Validate and heal data on load
-      const healedData = validateAndHealData(loadedData);
-      lastPersistedRef.current = JSON.stringify(healedData);
-      
-      // Only update state if data actually changed (for external changes)
-      if (isExternalChange && data) {
-        // For external changes, we could preserve more state here if needed
-        setData(healedData);
-      } else {
-        setData(healedData);
-      }
+      const healedData = validateAndHealData(loadedData)
+      lastPersistedRef.current = JSON.stringify(healedData)
+      setData(healedData)
     } catch (error) {
-      const msg = String(error?.message || error);
-      const tooNew = msg.match(/SCHEMA_VERSION_TOO_NEW:(\d+)/);
+      const msg = String(error?.message || error)
+      const tooNew = msg.match(/SCHEMA_VERSION_TOO_NEW:(\d+)/)
       if (tooNew) {
-        setSchemaError(parseInt(tooNew[1], 10));
-        setLoading(false);
-        return;
+        setSchemaError(parseInt(tooNew[1], 10))
+        setLoading(false)
+        return
       }
-      console.error('Failed to load data:', error);
+      console.error('Failed to load data:', error)
       // Corrupt file or other error - trigger setup to let user choose a new location
-      setSetupRequired(true);
+      setSetupRequired(true)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   // Debounced save function - does NOT await backup, saves immediately for responsive UI
   const debouncedSave = useCallback((newData) => {
     // Clear any pending save
     if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
+      clearTimeout(saveTimeoutRef.current)
     }
-    
+
     // Store the pending save data
-    pendingSaveRef.current = newData;
-    
+    pendingSaveRef.current = newData
+
     // Schedule save after 100ms debounce for responsive feel
     saveTimeoutRef.current = setTimeout(async () => {
       if (pendingSaveRef.current && dataFile) {
         try {
-          const incoming = JSON.stringify(pendingSaveRef.current);
+          const incoming = JSON.stringify(pendingSaveRef.current)
           // No-change-no-write: identical content must never hit the disk
           if (lastPersistedRef.current === null || incoming !== lastPersistedRef.current) {
             window.api.saveData(pendingSaveRef.current).catch(err => {
-              console.error('Failed to save data:', err);
-            });
-            lastPersistedRef.current = incoming;
+              console.error('Failed to save data:', err)
+            })
+            lastPersistedRef.current = incoming
           }
-          
+
           // Update UI state immediately for responsive feel
-          setData(pendingSaveRef.current);
-          pendingSaveRef.current = null;
+          setData(pendingSaveRef.current)
+          pendingSaveRef.current = null
         } catch (error) {
-          console.error('Failed to save data:', error);
-          throw error;
+          console.error('Failed to save data:', error)
+          throw error
         }
       }
-    }, 100);
-  }, [dataFile]);
+    }, 100)
+  }, [dataFile])
 
   const saveData = useCallback(async (newData) => {
-    if (!dataFile) return;
-    
-    // Use debounced save instead of immediate save
-    debouncedSave(newData);
-  }, [debouncedSave]);
-  
+    if (!dataFile) return
+    debouncedSave(newData)
+  }, [debouncedSave])
+
   // Flush pending saves immediately (for when switching views or closing)
   const flushSave = useCallback(async () => {
     if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-      saveTimeoutRef.current = null;
+      clearTimeout(saveTimeoutRef.current)
+      saveTimeoutRef.current = null
     }
-    
+
     if (pendingSaveRef.current && dataFile) {
       try {
-        await window.api.saveData(pendingSaveRef.current);
-        
-        setData(pendingSaveRef.current);
-        pendingSaveRef.current = null;
+        await window.api.saveData(pendingSaveRef.current)
+
+        setData(pendingSaveRef.current)
+        pendingSaveRef.current = null
       } catch (error) {
-        console.error('Failed to flush save:', error);
-        throw error;
+        console.error('Failed to flush save:', error)
+        throw error
       }
     }
-  }, [dataFile]);
+  }, [dataFile])
 
   const handleBackupNow = useCallback(async () => {
     try {
@@ -279,7 +272,7 @@ function App() {
       return result
     } catch (error) {
       console.error('Failed to move data:', error)
-      alert('Failed to move data: ' + error.message)
+      alert('Failed to move folder: ' + error.message)
       throw error
     }
   }, [])
@@ -287,61 +280,38 @@ function App() {
   const handleSetupComplete = async (filePath) => {
     try {
       // Get default path from backend if no specific path selected
-      let finalPath = filePath;
+      let finalPath = filePath
       if (!filePath || filePath === 'default') {
-        finalPath = await window.api.getDefaultPath();
+        finalPath = await window.api.getDefaultPath()
       }
-      
+
       // Set app state FIRST with the new path - this ensures loadData uses the correct path
-      await window.api.setAppState({ dataPath: finalPath });
-      setDataFile(finalPath);
-      
-      // Check if file exists at the NEW path - if not, create default data
-      let existingData = null;
+      await window.api.setAppState({ dataPath: finalPath })
+      setDataFile(finalPath)
+
+      // Check if file exists at the NEW path - if not, seed the starter
+      // habit board (canonical core defaults: frequencies, groups, habits,
+      // a little check-in history).
+      let existingData = null
       try {
-        existingData = await window.api.loadData();
+        existingData = await window.api.loadData()
       } catch (e) {
         // File doesn't exist or is invalid, will create new
-        existingData = null;
+        existingData = null
       }
-      
+
       if (!existingData) {
-        // Create default data with difficulties if file doesn't exist
-        const defaultData = {
-          schemaVersion: 1,
-          meta: {
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          },
-          settings: {
-            theme: 'system',
-            weekStartsOn: 1,
-            heatmapMode: 'score',
-            fatigueIncrement: 0.10,
-            fatigueCap: 3.0
-          },
-          difficulties: [
-            { id: generateId(), label: 'Easy', score: 1, color: '#4ade80', order: 0, active: true },
-            { id: generateId(), label: 'Medium', score: 2, color: '#fbbf24', order: 1, active: true },
-            { id: generateId(), label: 'Hard', score: 3, color: '#f87171', order: 2, active: true },
-            { id: generateId(), label: 'Very Hard', score: 5, color: '#dc2626', order: 3, active: true }
-          ],
-          categories: [],
-          markers: [],
-          board: [],
-          tasks: []
-        };
-        await window.api.saveData(defaultData);
+        await window.api.saveData(createDefaultData())
       }
-      
+
       // Now load the data from the correct path
-      await loadData(finalPath);
-      setSetupRequired(false);
+      await loadData(finalPath)
+      setSetupRequired(false)
     } catch (error) {
-      console.error('Setup failed:', error);
-      throw error;
+      console.error('Setup failed:', error)
+      throw error
     }
-  };
+  }
 
   if (loading) {
     return (
@@ -368,6 +338,8 @@ function App() {
     return <SetupScreen onComplete={handleSetupComplete} />
   }
 
+  const openEditor = (habit) => setEditorHabit(habit || null)
+
   return (
     <div className="app">
       <nav className="nav">
@@ -375,16 +347,25 @@ function App() {
           <RecursiveMark size={24} spin />
           <span className="nav-brand-name">Habit<span>Tracker</span></span>
         </div>
-        <button 
-          className={`nav-item ${currentView === 'board' ? 'active' : ''}`}
+        <button
+          className={`nav-item ${currentView === 'today' ? 'active' : ''}`}
           onClick={() => {
             flushSave()
-            setCurrentView('board')
+            setCurrentView('today')
           }}
         >
-          Board
+          Today
         </button>
-        <button 
+        <button
+          className={`nav-item ${currentView === 'habits' ? 'active' : ''}`}
+          onClick={() => {
+            flushSave()
+            setCurrentView('habits')
+          }}
+        >
+          Habits
+        </button>
+        <button
           className={`nav-item ${currentView === 'reviews' ? 'active' : ''}`}
           onClick={() => {
             flushSave()
@@ -393,7 +374,7 @@ function App() {
         >
           Reviews
         </button>
-        <button 
+        <button
           className={`nav-item ${currentView === 'settings' ? 'active' : ''}`}
           onClick={() => {
             flushSave()
@@ -402,7 +383,7 @@ function App() {
         >
           Settings
         </button>
-        <button 
+        <button
           className={`nav-refresh-btn ${refreshing ? 'spinning' : ''}`}
           onClick={handleRefresh}
           title={autoSync ? 'Refresh data' : 'Refresh data (auto-sync is off)'}
@@ -413,25 +394,39 @@ function App() {
           </svg>
         </button>
         <div style={{ flex: 1 }}></div>
-        <WorkingOnMarker 
-          data={data} 
-          onOpenPopup={() => setShowWorkingOnPopup(true)} 
-        />
+        <button
+          className="nav-item"
+          style={{ fontWeight: 800 }}
+          onClick={() => openEditor(null)}
+          title="New habit"
+        >
+          ＋ Habit
+        </button>
       </nav>
-      
+
       <main className="main-content">
-        {currentView === 'board' && (
-          <Board data={data} onSave={saveData} />
-        )}
-        {currentView === 'reviews' && (
-          <Reviews 
-            data={data} 
+        {currentView === 'today' && (
+          <TodayView
+            data={data}
             onSave={saveData}
+            onEditHabit={openEditor}
+            onAddHabit={() => openEditor(null)}
           />
         )}
+        {currentView === 'habits' && (
+          <HabitsView
+            data={data}
+            onSave={saveData}
+            onEditHabit={openEditor}
+            onAddHabit={() => openEditor(null)}
+          />
+        )}
+        {currentView === 'reviews' && (
+          <ReviewsView data={data} />
+        )}
         {currentView === 'settings' && (
-          <Settings 
-            data={data} 
+          <Settings
+            data={data}
             onSave={saveData}
             dataFile={dataFile}
             conflicts={conflicts}
@@ -444,134 +439,28 @@ function App() {
         )}
       </main>
 
-      {showWorkingOnPopup && (
-        <WorkingOnPopup
-          tasks={(data?.workingOn || []).map(id => data?.tasks?.find(t => t.id === id)).filter(Boolean)}
-          boardItems={data?.board || []}
-          markers={data?.markers || []}
-          categories={data?.categories || []}
-          difficulties={data?.difficulties || []}
-          onClose={() => setShowWorkingOnPopup(false)}
-          onCompleteTask={({ taskId, difficultyId, date, note }) => {
-            // Find task index in boardItems to determine category based on markers ONLY
-            const boardItems = data?.board || []
-            const markers = data?.markers || []
-            const taskIndex = boardItems.findIndex(item => item.type === 'task' && item.taskId === taskId)
-            
-            // Strict marker-based category derivation
-            let aboveMarker = null
-            let belowMarker = null
-            
-            for (let i = taskIndex - 1; i >= 0; i--) {
-              const item = boardItems[i]
-              if (item && item.type === 'marker') {
-                aboveMarker = item
-                break
-              }
-            }
-            
-            for (let i = taskIndex + 1; i < boardItems.length; i++) {
-              const item = boardItems[i]
-              if (item && item.type === 'marker') {
-                belowMarker = item
-                break
-              }
-            }
-            
-            let categoryId = null
-            if (aboveMarker && belowMarker && aboveMarker.markerId === belowMarker.markerId) {
-              const marker = markers.find(m => m.id === aboveMarker.markerId)
-              if (marker) categoryId = marker.categoryId
-            } else if (aboveMarker && belowMarker) {
-              const aboveMarkerObj = markers.find(m => m.id === aboveMarker.markerId)
-              const belowMarkerObj = markers.find(m => m.id === belowMarker.markerId)
-              if (aboveMarkerObj && belowMarkerObj && aboveMarkerObj.categoryId === belowMarkerObj.categoryId) {
-                categoryId = aboveMarkerObj.categoryId
-              }
-            }
-
-            const completedAt = new Date().toISOString()
-
-            // Build the completed task object to compute score breakdown
-            const completedTask = {
-              id: taskId,
-              text: data?.tasks?.find(t => t.id === taskId)?.text || '',
-              completion: {
-                completedDate: date,
-                completedAt,
-                difficultyId,
-                categoryId,
-                note: note || ''
-              }
-            }
-
-            const appDifficulties = data?.difficulties || []
-            const appCategories = data?.categories || []
-            const appSettings = data?.settings || {}
-            const allCompleted = [...(data?.tasks || []).filter(t => t.completion), completedTask]
-            const breakdown = calculateTaskScoreBreakdown(
-              completedTask,
-              allCompleted,
-              appDifficulties,
-              appSettings.fatigueIncrement || 0.10,
-              appSettings.fatigueCap || 3.0,
-              appCategories
-            )
-
-            // Create log entry
-            const logEntry = {
-              id: generateId(),
-              timestamp: completedAt,
-              taskId,
-              taskText: completedTask.text,
-              difficultyLabel: breakdown.difficultyLabel,
-              difficultyColor: breakdown.difficultyColor,
-              categoryName: breakdown.categoryName,
-              categoryColor: breakdown.categoryColor,
-              priorityMultiplier: breakdown.priorityMultiplier,
-              fatigueMultiplier: breakdown.fatigueMultiplier,
-              basePoints: breakdown.basePoints,
-              finalScore: breakdown.finalScore
-            }
-
-            const updatedTasks = (data?.tasks || []).map(t => {
-              if (t.id === taskId) {
-                return {
-                  ...t,
-                  completion: {
-                    completedDate: date,
-                    completedAt,
-                    difficultyId,
-                    categoryId,
-                    note: note || ''
-                  }
-                }
-              }
-              return t
-            })
-
-            const updatedBoard = boardItems.filter(item => 
-              !(item.type === 'task' && item.taskId === taskId)
-            )
-            
-            const updatedWorkingOn = (data?.workingOn || []).filter(id => id !== taskId)
-
-            // Cap logs at 500 entries
-            const existingLogs = data?.logs || []
-            const updatedLogs = existingLogs.length >= 500
-              ? [...existingLogs.slice(existingLogs.length - 499), logEntry]
-              : [...existingLogs, logEntry]
-
+      {editorHabit !== undefined && (
+        <HabitEditor
+          key={editorHabit ? editorHabit.id : 'new'}
+          data={data}
+          onSave={saveData}
+          onClose={() => setEditorHabit(undefined)}
+          habit={editorHabit}
+          onArchive={(habit) => {
             saveData({
-              ...(data || {}),
-              tasks: updatedTasks,
-              board: updatedBoard,
-              workingOn: updatedWorkingOn,
-              logs: updatedLogs,
-              meta: { ...(data?.meta || {}), updatedAt: completedAt }
+              ...data,
+              habits: (data.habits || []).map(h => (h.id === habit.id ? { ...h, archived: !h.archived } : h)),
+              meta: { ...(data.meta || {}), updatedAt: new Date().toISOString() }
             })
-
-            setShowWorkingOnPopup(false)
+          }}
+          onDelete={(habit) => {
+            saveData({
+              ...data,
+              habits: (data.habits || []).filter(h => h.id !== habit.id),
+              board: (data.board || []).filter(item => !(item && item.type === 'habit' && item.habitId === habit.id)),
+              completions: (data.completions || []).filter(c => c.habitId !== habit.id),
+              meta: { ...(data.meta || {}), updatedAt: new Date().toISOString() }
+            })
           }}
         />
       )}

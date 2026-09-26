@@ -530,5 +530,167 @@
       "workingOn": [],
       "logs": []
     }
+  },
+  "habit-slots.json": {
+    "dayScores": {},
+    "breakdowns": {},
+    "categoryDerivations": {},
+    "healedOutput": {
+      "schemaVersion": 1,
+      "meta": {
+        "createdAt": "2026-01-01T08:00:00.000Z",
+        "updatedAt": "2026-01-10T09:00:00.000Z"
+      },
+      "settings": {
+        "theme": "dark",
+        "weekStartsOn": 1,
+        "heatmapMode": "consistency"
+      },
+      "frequencies": [
+        {
+          "id": "freq-daily",
+          "key": "daily",
+          "label": "Every day",
+          "icon": "☀️",
+          "color": "#34d399",
+          "kind": "daily",
+          "timesPerPeriod": 1,
+          "graceDays": 0,
+          "system": true
+        },
+        {
+          "id": "freq-twice-daily",
+          "key": "twice-daily",
+          "label": "Twice a day",
+          "icon": "✌️",
+          "color": "#2dd4bf",
+          "kind": "daily",
+          "timesPerDay": 2,
+          "timesPerPeriod": 1,
+          "graceDays": 0,
+          "system": true
+        }
+      ],
+      "categories": [
+        {
+          "id": "cat-body",
+          "name": "Body",
+          "color": "#34d399",
+          "order": 0,
+          "archived": false
+        }
+      ],
+      "habits": [
+        {
+          "id": "habit-brush",
+          "title": "Brush teeth",
+          "icon": "🪥",
+          "frequencyId": "freq-twice-daily",
+          "categoryId": "cat-body",
+          "color": "#2dd4bf",
+          "order": 0,
+          "archived": false,
+          "createdAt": "2026-01-01T08:00:00.000Z",
+          "timesOfDay": [
+            "morning",
+            "evening"
+          ]
+        },
+        {
+          "id": "habit-jog",
+          "title": "Jog",
+          "icon": "🏃",
+          "frequencyId": "freq-daily",
+          "categoryId": "cat-body",
+          "color": "#34d399",
+          "order": 1,
+          "archived": false,
+          "createdAt": "2026-01-01T08:00:00.000Z",
+          "timesPerDay": 3,
+          "timesOfDay": [
+            "morning",
+            "afternoon",
+            "evening"
+          ]
+        },
+        {
+          "id": "habit-water",
+          "title": "Drink water",
+          "icon": "💧",
+          "frequencyId": "freq-daily",
+          "categoryId": null,
+          "color": "#38bdf8",
+          "order": 2,
+          "archived": false,
+          "createdAt": "2026-01-01T08:00:00.000Z"
+        }
+      ],
+      "board": [
+        {
+          "type": "habit",
+          "habitId": "habit-brush"
+        },
+        {
+          "type": "habit",
+          "habitId": "habit-jog"
+        },
+        {
+          "type": "habit",
+          "habitId": "habit-water"
+        }
+      ],
+      "completions": [
+        {
+          "id": "c1",
+          "habitId": "habit-brush",
+          "date": "2026-01-08",
+          "slot": "morning",
+          "note": "",
+          "createdAt": "2026-01-08T07:30:00.000Z"
+        },
+        {
+          "id": "c2",
+          "habitId": "habit-brush",
+          "date": "2026-01-08",
+          "slot": "evening",
+          "note": "",
+          "createdAt": "2026-01-08T21:00:00.000Z"
+        },
+        {
+          "id": "c3",
+          "habitId": "habit-brush",
+          "date": "2026-01-09",
+          "note": "",
+          "createdAt": "2026-01-09T12:00:00.000Z"
+        },
+        {
+          "id": "c4",
+          "habitId": "habit-jog",
+          "date": "2026-01-09",
+          "slot": "morning",
+          "note": "",
+          "createdAt": "2026-01-09T06:00:00.000Z"
+        },
+        {
+          "id": "c5",
+          "habitId": "habit-water",
+          "date": "2026-01-09",
+          "note": "",
+          "createdAt": "2026-01-09T10:00:00.000Z"
+        },
+        {
+          "id": "c6",
+          "habitId": "habit-brush",
+          "date": "2026-01-09",
+          "note": "",
+          "createdAt": "2026-01-09T22:00:00.000Z"
+        }
+      ],
+      "logs": [],
+      "workingOn": [],
+      "difficulties": [],
+      "markers": [],
+      "tasks": []
+    }
   }
 }

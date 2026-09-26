@@ -46,6 +46,80 @@ healing output from the same file (see the dual-runtime fixture tests).
 }
 ```
 
+The habit model adds three top-level sections (a fresh file from
+`createDefaultData()` contains all of them alongside empty legacy sections):
+
+```json
+{
+  "frequencies": [ ... ],
+  "habits":      [ ... ],
+  "completions": [ ... ]
+}
+```
+
+---
+
+## The habit model (frequencies · habits · completions)
+
+### `frequencies[]` — the cadence catalogue
+
+Plain user-editable data (rename, recolor, delete, invent new ones; entries
+with `system: true` are reseeded by a fresh install but never overwrite edits).
+Each entry: `id`, `key`, `label`, `icon`, `color`, plus a `kind` discriminator:
+
+| `kind` | Extra fields | Due when… |
+|---|---|---|
+| `daily` | — | every day |
+| `weekdays` | `weekdays: [0..6]` (0 = Sunday) | the pinned weekdays |
+| `weekly` | `weekdays?` (pins due days), `timesPerPeriod?` | every day of the week unless pinned; goal is per ISO week |
+| `every-n` | `interval: N`, `anchorDate?` | every N days from the anchor |
+| `every-n-weeks` | `interval: N`, `weekdays?`, `anchorDate?` | in due weeks, on the pinned (or any) days |
+| `monthly` | `monthDays?: [1..31]`, `timesPerPeriod?` | all month unless days pinned; goal is per month |
+| `yearly` | `anchorDate?` | the anniversary window |
+
+Shared optional fields: `timesPerPeriod` (how many completions "count" per
+period — the 2×/3×-per-week style goals), `timesPerDay` (default per-day count
+for the cadence), `graceDays` (missed days tolerated before a streak breaks).
+
+### `habits[]`
+
+| Field | Type | Meaning |
+|---|---|---|
+| `id` | string | Stable id; referenced by `board` entries and `completions` |
+| `title`, `icon`, `color` | string | Display; emoji + hex color |
+| `frequencyId` | string | → `frequencies[].id` |
+| `categoryId` | string \| `null` | → `categories[].id` (soft group tag) |
+| `order` | number | Display order seed (the `board` array is the live order) |
+| `archived` | boolean | Archived habits keep history, leave Today |
+| `timesPerDay` | number (1–12), optional | **Per-habit override** of the frequency's default per-day count — this is how "3× a day" lives on any cadence |
+| `timesOfDay` | array, optional | **One entry per occurrence**: a slot key (`morning` \| `afternoon` \| `evening` \| `night`) or `null` (= Anytime). `[ "morning", "evening" ]` = brush after breakfast and before bed. An all-`null` list is equivalent to absent |
+
+Resolution rules (core `resolveTimesOfDay`): invalid keys normalize to `null`;
+entries beyond the effective `timesPerDay` are dropped; an all-`null` list
+collapses to slotless. The effective per-day count is `habit.timesPerDay` when
+present, else `frequency.timesPerDay`, else 1 (`effectiveTimesPerDay`).
+
+### `completions[]`
+
+| Field | Type | Meaning |
+|---|---|---|
+| `id` | string | Unique |
+| `habitId` | string | → `habits[].id` (orphans are dropped by healing) |
+| `date` | `YYYY-MM-DD` | Local calendar date of the check-in |
+| `slot` | `'morning'` \| `'afternoon'` \| `'evening'` \| `'night'`, optional | Which occurrence this check-in satisfied. Absent = an Anytime check-in: it counts toward totals but satisfies no specific slot |
+| `note` | string | Optional |
+| `createdAt` | ISO timestamp | When it was recorded |
+
+Healing (idempotent): duplicates by `id`, orphaned `habitId`s and malformed
+dates drop the completion; an **unknown `slot` value is dropped but the
+completion is kept**. The array sorts by (date, id).
+
+Slot semantics on the Today page: a slot is satisfied when at least one
+completion that date carries it; slotless check-ins fill Anytime occurrences
+(`perDay − declaredSlots` of them) one tap at a time.
+
+---
+
 ### `schemaVersion` — number
 
 - **Must be a number.** Missing, `null`, or a non-number (e.g. `"2"`) is

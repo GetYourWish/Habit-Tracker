@@ -47,7 +47,7 @@ describe('App schemaVersion refusal (Phase 2)', () => {
     expect(api.saveData).not.toHaveBeenCalled()
   })
 
-  it('treats missing schemaVersion as 1 and renders the board', async () => {
+  it('treats missing schemaVersion as 1 and renders the Today page', async () => {
     mockApi({
       loadData: async () => ({
         meta: { createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' },
@@ -63,9 +63,9 @@ describe('App schemaVersion refusal (Phase 2)', () => {
     await waitFor(() => {
       expect(screen.queryByText('Data file is from a newer version')).not.toBeInTheDocument()
     })
-    // board view is the default (nav button + view title both say Board)
+    // Today view is the default (nav button + empty state both present)
     await waitFor(() => {
-      expect(screen.getAllByText('Board').length).toBeGreaterThan(0)
+      expect(screen.getAllByText('Today').length).toBeGreaterThan(0)
     })
   })
 })

@@ -90,7 +90,7 @@ function createDefaultData(today) {
     const freq = freqByKey[p.frequencyKey]
     const cat = catByName[p.group]
     const habitId = stableId(`habit:${p.title}`)
-    habits.push({
+    const habit = {
       id: habitId,
       title: p.title,
       icon: p.icon,
@@ -100,10 +100,24 @@ function createDefaultData(today) {
       order: idx,
       archived: false,
       createdAt: '1970-01-01T00:00:00.000Z'
-    })
+    }
+    // Per-habit "N times a day" override + one best-time-of-day slot per
+    // occurrence (e.g. brushing: morning + evening). Plain user data — the
+    // editor can change or clear both on any habit.
+    if (Number.isFinite(Number(p.timesPerDay)) && Number(p.timesPerDay) >= 1) {
+      habit.timesPerDay = Math.min(12, Math.floor(Number(p.timesPerDay)))
+    }
+    if (Array.isArray(p.timesOfDay) && p.timesOfDay.length) {
+      habit.timesOfDay = p.timesOfDay.slice()
+    }
+    habits.push(habit)
     board.push({ type: 'habit', habitId })
 
-    const goal = Math.max(1, Number(freq.timesPerPeriod) || 1)
+    // Seeded goal honors the per-day count (timesPerDay override included):
+    // "twice a day" needs 2 completions on a scheduled day, not 1.
+    const perDay = Math.max(1, Number(habit.timesPerDay) || Number(freq.timesPerDay) || 1)
+    const goal = Math.max(1, Number(freq.timesPerPeriod) || 1) * perDay
+    const slots = Array.isArray(habit.timesOfDay) ? habit.timesOfDay.slice() : []
     for (let back = 0; back < SEED_DAYS; back++) {
       const dt = new Date(anchor.getTime() - back * DAY_MS)
       const dateStr = ymd(dt)
@@ -113,13 +127,17 @@ function createDefaultData(today) {
       if (seededRand(`${habitId}|${dateStr}`) < skipChance) continue
       const times = goal > 1 ? (seededRand(`${habitId}|${dateStr}|t`) < 0.6 ? goal : 1) : 1
       for (let t = 0; t < times; t++) {
-        completions.push({
+        const completion = {
           id: stableId(`done:${habitId}:${dateStr}:${t}`),
           habitId,
           date: dateStr,
           note: '',
           createdAt: '1970-01-01T00:00:00.000Z'
-        })
+        }
+        // Slot-aware history: the t-th completion of the day claims the t-th
+        // declared slot when there is one (keeps the Today page honest).
+        if (slots[t]) completion.slot = slots[t]
+        completions.push(completion)
       }
     }
   })

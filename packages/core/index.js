@@ -30,6 +30,7 @@ const { getTaskCategory } = require('./src/categories')
 const { createDefaultData } = require('./src/defaults')
 const { checkSchemaVersion, validateAndHealData } = require('./src/schema')
 const recurrence = require('./src/recurrence')
+const times = require('./src/times')
 const { STARTER_GROUPS, STARTER_HABITS } = require('./src/presets')
 
 module.exports = {
@@ -69,9 +70,20 @@ module.exports = {
   calculateBestStreak: recurrence.calculateBestStreak,
   totalCompletions: recurrence.totalCompletions,
   indexCompletions: recurrence.indexCompletions,
+  describeFrequency: recurrence.describeFrequency,
+  nextDueDates: recurrence.nextDueDates,
   addDays: recurrence.addDays,
   diffDays: recurrence.diffDays,
   dayOfWeek: recurrence.dayOfWeek,
   startOfWeekOf: recurrence.startOfWeek,
-  endOfWeekOf: recurrence.endOfWeek
+  endOfWeekOf: recurrence.endOfWeek,
+  // time-of-day slots ("N times a day" habits)
+  SLOT_KEYS: times.SLOT_KEYS,
+  TIME_OF_DAY_SLOTS: times.TIME_OF_DAY_SLOTS,
+  isValidSlotKey: times.isValidSlotKey,
+  slotInfo: times.slotInfo,
+  slotForHour: times.slotForHour,
+  effectiveTimesPerDay: times.effectiveTimesPerDay,
+  resolveTimesOfDay: times.resolveTimesOfDay,
+  countSlotDoneOnDate: times.countSlotDoneOnDate
 }

@@ -171,7 +171,7 @@ describe('backups rotation', () => {
     expect(isBackupName('habit-2026-01-01T00-00-00-000Z.json')).toBe(true)
     expect(isBackupName('habit.json')).toBe(false)
     expect(isBackupName('habit.json.tmp')).toBe(false) // desktop atomicSave tmp
-    expect(isBackupName('.tracker.tmp.json')).toBe(false) // mobile atomic-write tmp
+    expect(isBackupName('.habit.tmp.json')).toBe(false) // mobile atomic-write tmp
   })
 })
 
@@ -345,7 +345,7 @@ describe('tracker store', () => {
 
     const names = [...adapter._files.keys()].map(fileNameOf)
     // the mobile tmp is a leading-dot name (Android-safe, desktop-distinct)
-    expect(names).not.toContain('.tracker.tmp.json')
+    expect(names).not.toContain('.habit.tmp.json')
     expect(names).not.toContain('habit.json.tmp')
     const raw = adapter._files.get(DIR + FILE).content
     expect(raw).toBe(JSON.stringify(JSON.parse(raw), null, 2)) // pretty, 2-space
@@ -484,7 +484,8 @@ describe('tracker store', () => {
     expect(store.getSnapshot().status).toBe('ready')
     const parsed = JSON.parse(adapter._files.get(DIR + FILE).content)
     expect(parsed.schemaVersion).toBe(1)
-    expect(parsed.difficulties).toHaveLength(4)
+    expect(parsed.habits.length).toBeGreaterThan(0)
+    expect(parsed.frequencies.length).toBeGreaterThan(0)
   })
 })
 

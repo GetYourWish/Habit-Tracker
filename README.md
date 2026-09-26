@@ -1,6 +1,10 @@
 # 🚀 Habit Tracker
 
-A personal local-first desktop performance tracker for Windows. Track your tasks, visualize your productivity, and build a satisfying history of what you've accomplished.
+A personal local-first **habit tracker** for Windows (plus an Android companion).
+Build routines that stick: brushing teeth, jogging, reading before bed — any
+recurring habit, as often as you want (once a day, twice a day, every other
+day, three times a week…), each occurrence pinned to the part of the day it
+belongs to.
 
 ---
 
@@ -8,8 +12,9 @@ A personal local-first desktop performance tracker for Windows. Track your tasks
 
 | Principle | Description |
 |-----------|-------------|
-| 📈 **Performance History Focus** | Track what you **did**, not what's left to do |
-| ⚡ **Lightweight & Fast** | Clean, fast, and personal experience |
+| 🌱 **Today-first** | The main page is simply *what should be done today* — grouped by Morning / Afternoon / Evening / Night / Anytime |
+| ⏰ **Best time of day, per occurrence** | A habit due twice a day picks a time for EACH occurrence (brushing = Morning + Evening); every occurrence gets its own check-in |
+| 🔥 **Streaks that respect the rules** | Streaks, goals and consistency are recomputed from the log — change a cadence anytime, history is never rewritten |
 | 🏠 **Local-First** | No cloud dependencies, your data stays with you |
 | 🔄 **Syncthing Compatible** | Cross-device syncing made easy |
 | 💾 **Portable Data** | Single JSON file for ultimate portability |
@@ -18,44 +23,37 @@ A personal local-first desktop performance tracker for Windows. Track your tasks
 
 ## 🌟 Key Features
 
-### 📋 Board View
-- Notepad-like task entry - just type and press Enter
-- Drag-and-drop reordering of tasks
-- Category markers to organize tasks visually
-- Quick completion and deletion actions
+### 📋 Today (main page)
+- Everything due today, grouped into Morning ☀️ / Afternoon / Evening 🌆 / Night 🌙 / Anytime ⏰ sections
+- A habit due multiple times a day shows **one row per occurrence** — each with its own check circle (tap to check, tap again to undo)
+- Habits without preferred times live in Anytime with a ×N progress chip — every tap adds one check-in
+- Day progress ring, streak flames 🔥, last-7-days dot grid per row
+- "Resting today" section for habits not scheduled today (bonus check-ins allowed)
 
-### ✅ Completion Flow
-- Mark tasks complete with a single click
-- Select difficulty level (Easy, Medium, Hard, Very Hard)
-- Choose completion date (defaults to today)
-- Add optional notes
+### ✏️ Habit Editor — times per day + best time of day
+- Pick an emoji, a color, a group (Body / Mind / Home / Work — yours to rename)
+- Cadence chips: Every day, Weekdays, Weekends, Every other day, Once/Twice/Three times a week, Monthly, Yearly…
+- **Times per day stepper (1–12)** — and when it's more than once, **one best-time-of-day choice per occurrence**: Morning / Afternoon / Evening / Night / Anytime each
+- Sensible defaults (2× suggests Morning + Evening), freely changeable per occurrence, live preview line
 
-### 📊 Reviews & Analytics
-- **Daily Review**: See your productivity score and completed tasks for any date
-- **Weekly Review**: View totals, best day, and a bar chart of the week
-- **Heatmap**: GitHub-style contribution heatmap showing your activity over the year
+### 🗂 Habits management
+- All habits grouped by group chips; reorder, archive (keeps history), delete (with confirmation)
+- Group manager: add / rename / recolor / delete groups
+- Streak + best streak + cadence summary on every row
 
-### 🎯 Scoring System
-Dynamic scoring that rewards volume and difficulty:
-- Each task has a base score from its difficulty level
-- Additional tasks on the same day get a fatigue bonus (default 10% per task)
-- Configurable fatigue cap (default 3x multiplier)
-- Scores recalculate automatically when you change difficulty settings
-
-### 🏷️ Categories
-- Optional category system using visual markers on the board
-- Drag categories from the grabber onto the board to create markers
-- Tasks between matching markers automatically inherit that category
-- Categories are purely organizational - never required for task entry
+### 📊 Reviews
+- 30 / 90-day views: check-ins in range, best live streak, perfect days, active days
+- Per-habit dot grids (darker = more check-ins), current & best streak, total, consistency %
 
 ### ⚙️ Settings
-- Manage difficulty levels (labels, scores, colors)
-- Manage categories (names, colors)
-- Theme selection (Light, Dark, System)
-- Week start day (Monday or Sunday)
-- Scoring configuration (fatigue bonus, cap)
-- Heatmap mode (Score or Task Count)
-- Data file location
+- Data file location, backup now, auto-sync watching, Syncthing conflict surfacing
+- Theme (Light / Dark / System), week start day
+
+### 💾 Data model highlights
+- Habits carry `timesPerDay` (1–12) and `timesOfDay` — one slot (or Anytime) per occurrence
+- Completions record which slot they satisfied (`completion.slot`)
+- Healing is idempotent and never rewrites unchanged content; unknown slot values are dropped without losing the completion
+- Full schema: [`packages/core/SCHEMA.md`](packages/core/SCHEMA.md)
 
 ---
 
@@ -65,12 +63,17 @@ Dynamic scoring that rewards volume and difficulty:
 |-----------|------------|
 | **Frontend** | React 19 + Vite |
 | **Desktop Framework** | Electron (Node.js) |
-| **Drag & Drop** | `@dnd-kit` |
-| **Charts** | Recharts |
 | **Date Utilities** | `date-fns` |
-| **Animations** | Framer Motion |
 | **File Watching** | Chokidar |
 | **Styling** | Custom CSS (no heavy frameworks) |
+
+> Dev note: `desktop/dev-preview.html` serves the full UI in a plain browser
+> (vite dev server) with a localStorage-backed mock of the Electron API —
+> handy for quick UI work without launching Electron.
+
+> The `mobile/` workspace still shows the legacy task board UI; it reads and
+> preserves the same `habit.json` safely (same core healing/gate) but hasn't
+> been redesigned around habits yet.
 
 ---
 
@@ -92,13 +95,20 @@ contract shared by the desktop app and the Android app. Quick outline:
   "schemaVersion": 1,
   "meta": { "createdAt": "…", "updatedAt": "…" },
   "settings": { ... },
-  "difficulties": [ ... ],
+  "frequencies": [ { "id": "…", "key": "daily", "label": "Every day", "kind": "daily", "timesPerPeriod": 1, "graceDays": 0 } ],
   "categories": [ ... ],
-  "markers": [ ... ],
-  "board": [ ... ],
-  "tasks": [ ... ],
-  "workingOn": [ ... ],
-  "logs": [ ... ]
+  "habits": [
+    {
+      "id": "…", "title": "Brush teeth", "icon": "🪥", "color": "#2dd4bf",
+      "frequencyId": "…", "categoryId": "…", "order": 0, "archived": false,
+      "timesPerDay": 2,
+      "timesOfDay": ["morning", "evening"]
+    }
+  ],
+  "board": [ { "type": "habit", "habitId": "…" } ],
+  "completions": [ { "id": "…", "habitId": "…", "date": "2026-09-27", "slot": "morning", "note": "" } ],
+  "logs": [ ... ],
+  "tasks": [ ], "workingOn": [ ], "difficulties": [ ], "markers": [ ]
 }
 ```
 

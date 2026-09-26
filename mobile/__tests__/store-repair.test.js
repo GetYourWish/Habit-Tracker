@@ -174,7 +174,7 @@ function createQuirkAdapter(initialFiles = {}, quirks = {}) {
 const DIR = 'content://com.android.externalstorage.documents/tree/Syncthing/'
 const FILE = 'habit.json'
 const TARGET = DIR + FILE
-const TMP = DIR + '.tracker.tmp.json'
+const TMP = DIR + '.habit.tmp.json'
 
 function sampleData() {
   return {
@@ -346,8 +346,8 @@ describe('persistent damage still enters recovery — and offers the verified tm
 
     // the byte-verified tmp from the failing cycle is in the folder AND is
     // offered as a recovery source (the stale-listing bug hid it before)
-    expect(folderNames(adapter)).toContain('.tracker.tmp.json')
-    expect(snap.recovery.sources.tmp).toBe('.tracker.tmp.json')
+    expect(folderNames(adapter)).toContain('.habit.tmp.json')
+    expect(snap.recovery.sources.tmp).toBe('.habit.tmp.json')
   })
 })
 
@@ -380,8 +380,8 @@ describe('SAF name-collision guard', () => {
     const names = folderNames(adapter)
     expect(names).not.toContain('tracker (1).json') // the dupe was cleaned up
     expect(names).toContain(FILE) // the original document is still there
-    expect(names).toContain('.tracker.tmp.json') // verified recovery copy kept
+    expect(names).toContain('.habit.tmp.json') // verified recovery copy kept
     expect(store.getSnapshot().status).toBe('error')
-    expect(store.getSnapshot().recovery.sources.tmp).toBe('.tracker.tmp.json')
+    expect(store.getSnapshot().recovery.sources.tmp).toBe('.habit.tmp.json')
   })
 })

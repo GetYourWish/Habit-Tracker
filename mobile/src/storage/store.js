@@ -97,7 +97,10 @@ import {
 } from './backups.js'
 import { salvageJson } from './salvage.js'
 
-export const CONFLICT_PATTERN = /tracker.*-conflict-/
+// Matches Syncthing conflict copies of the data file, both the legacy
+// tracker-*.json era and the current habit.json one
+// (habit-sync-conflict-….json).
+export const CONFLICT_PATTERN = /(tracker|habit).*-conflict-/
 
 export const LOAD_TIMEOUT_MS = 15000
 export const LOAD_TIMEOUT_MESSAGE =

@@ -161,7 +161,7 @@ describe('store vs real Android document URIs', () => {
 
   test('findChildByName semantics inside listFolder: tmp + target with real ids', async () => {
     const adapter = createRealisticAdapter()
-    adapter._files.set(docUri('.tracker.tmp.json'), { content: 'stale', mtime: 1 })
+    adapter._files.set(docUri('.habit.tmp.json'), { content: 'stale', mtime: 1 })
     adapter._files.set(docUri('habit.json'), { content: sampleRaw(), mtime: 2 })
     const store = createTrackerStore({ adapter, dirUri: DIR })
     await store.load()
@@ -190,13 +190,13 @@ describe('initializeDefault safety', () => {
     // exactly ONE tracker document, now holding the default data
     const docs = [...adapter._files.keys()].map(fileNameOf)
     expect(docs.filter(n => n === 'habit.json')).toHaveLength(1)
-    expect(docs.filter(n => n !== 'habit.json' && n !== '.tracker.tmp.json')).toHaveLength(0)
+    expect(docs.filter(n => n !== 'habit.json' && n !== '.habit.tmp.json')).toHaveLength(0)
     const written = JSON.parse(adapter._files.get(docUri('habit.json')).content)
     expect(written.schemaVersion).toBe(1)
-    expect(written.difficulties).toHaveLength(4)
+    expect(written.habits.length).toBeGreaterThan(0)
 
     // no tmp litter
-    expect(docs.includes('.tracker.tmp.json')).toBe(false)
+    expect(docs.includes('.habit.tmp.json')).toBe(false)
 
     // the previous content was backed up verbatim in the app-private area
     const backups = [...adapter._appFiles.entries()]
@@ -206,7 +206,7 @@ describe('initializeDefault safety', () => {
 
   test('cleans its own stale mobile tmp but never deletes the desktop\'s habit.json.tmp', async () => {
     // Two tmp files can legitimately sit in the Syncthing folder:
-    //  - '.tracker.tmp.json' — OURS (a crashed mobile write); the next write
+    //  - '.habit.tmp.json' — OURS (a crashed mobile write); the next write
     //    must remove it before creating a fresh one
     //  - 'habit.json.tmp'  — the DESKTOP app's atomicSave temp, synced in
     //    while the desktop is mid-save. The phone must leave it ALONE:
@@ -215,7 +215,7 @@ describe('initializeDefault safety', () => {
     //    DocumentsContract would otherwise append '.json' to a
     //    'habit.json.tmp' display name, making it unfindable for cleanup.)
     const adapter = createRealisticAdapter()
-    adapter._files.set(docUri('.tracker.tmp.json'), { content: 'stale mobile write', mtime: 1 })
+    adapter._files.set(docUri('.habit.tmp.json'), { content: 'stale mobile write', mtime: 1 })
     adapter._files.set(docUri('habit.json.tmp'), { content: 'desktop mid-save', mtime: 2 })
     const store = createTrackerStore({ adapter, dirUri: DIR })
 
@@ -223,7 +223,7 @@ describe('initializeDefault safety', () => {
 
     const docs = [...adapter._files.keys()].map(fileNameOf)
     // our stale tmp was replaced by the write's own tmp and removed again
-    expect(docs.includes('.tracker.tmp.json')).toBe(false)
+    expect(docs.includes('.habit.tmp.json')).toBe(false)
     // the desktop's live tmp survived untouched
     expect(docs.includes('habit.json.tmp')).toBe(true)
     expect(adapter._files.get(docUri('habit.json.tmp')).content).toBe('desktop mid-save')

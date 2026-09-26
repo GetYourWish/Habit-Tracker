@@ -5,6 +5,7 @@
 // treated as 1 (legacy files).
 
 const { createDefaultData } = require('./defaults')
+const { isValidSlotKey } = require('./times')
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
@@ -79,6 +80,12 @@ function validateAndHealData(data) {
       seenComp.add(c.id)
       return true
     })
+    // Slot hygiene (idempotent): a completion may record which time-of-day
+    // occurrence it satisfied (c.slot). Unknown slot values are dropped —
+    // never the completion itself — so healing never loses history.
+    for (const c of healed.completions) {
+      if ('slot' in c && !isValidSlotKey(c.slot)) delete c.slot
+    }
     healed.completions.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
 
     // Recompute derived lastCompletedDate from history (cross-device merge

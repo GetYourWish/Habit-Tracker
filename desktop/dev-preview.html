@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Habit Tracker — dev preview (no Electron)</title>
+    <script>
+      // Dev-only harness: mock the Electron preload API with a
+      // localStorage backend so the UI can be opened in a plain browser
+      // (vite dev server) without launching Electron. NOT part of the
+      // production build — nothing imports this file.
+      (function() {
+        if (window.api) return // real Electron preload wins
+        var KEY = 'dev-preview-habit-json'
+        window.api = {
+          getAppState: async () => ({ dataPath: 'dev-preview://habit.json' }),
+          setAppState: async () => ({}),
+          getDefaultPath: async () => 'dev-preview://habit.json',
+          chooseDataLocation: async () => null,
+          loadData: async () => {
+            var raw = localStorage.getItem(KEY)
+            return raw ? JSON.parse(raw) : null
+          },
+          saveData: async (data) => {
+            localStorage.setItem(KEY, JSON.stringify(data))
+          },
+          getWatcherEnabled: async () => false,
+          setWatcherEnabled: async () => {},
+          onExternalChange: () => () => {},
+          checkConflicts: async () => [],
+          refreshData: async () => {
+            var raw = localStorage.getItem(KEY)
+            return raw ? JSON.parse(raw) : null
+          },
+          backupNow: async () => 'dev-preview://backup.json',
+          openDataFolder: async () => {},
+          moveDataToFolder: async () => ({ success: true, filePath: 'dev-preview://habit.json' })
+        }
+      })()
+    </script>
+    <script>
+      // Same theme bootstrap as index.html (prevents flash of wrong theme).
+      (function() {
+        var storedTheme = localStorage.getItem('pt-theme')
+        var theme = storedTheme
+        if (!theme) {
+          theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+        }
+        if (theme === 'dark') {
+          document.documentElement.setAttribute('data-theme', 'dark')
+        } else {
+          document.documentElement.removeAttribute('data-theme')
+        }
+      })()
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
