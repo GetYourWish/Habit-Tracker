@@ -140,8 +140,20 @@ function createDefaultData(today) {
     categories,
     habits,
     board,
-    completions,
-    logs: []
+    // Canonical order (ascending date, then id) — matches the healing sort in
+    // schema.js so a freshly seeded file heals byte-identically on first load
+    // (anti-churn rule: no pointless rewrite right after seeding).
+    completions: completions.sort((a, b) =>
+      a.date < b.date ? -1 : a.date > b.date ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0
+    ),
+    logs: [],
+    // Legacy task-board sections. The desktop UI and schema healing expect
+    // these keys to exist; healing adds them if missing, so the seed must
+    // include them (in the same trailing order) for byte-identical heals.
+    workingOn: [],
+    difficulties: [],
+    markers: [],
+    tasks: []
   }
 }
 

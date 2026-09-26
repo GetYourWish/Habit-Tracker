@@ -116,10 +116,25 @@ function validateAndHealData(data) {
   // ---- board ---------------------------------------------------------------
   // Drop malformed rows, rows pointing at missing tasks / completed tasks /
   // missing markers, and duplicate references. Order of survivors is kept.
+  // Habit-model rows ({type:'habit', habitId}) are validated against the
+  // habits list when present — dropping them would wipe the seeded starter
+  // board on every load and trigger endless rewrite churn.
+  const habitIdsForBoard = Array.isArray(healed.habits)
+    ? new Set(healed.habits.filter(h => h && typeof h === 'object' && h.id).map(h => h.id))
+    : null
   const seenTaskRefs = new Set()
   const seenMarkerRefs = new Set()
+  const seenHabitRefs = new Set()
   healed.board = healed.board.filter(item => {
     if (!item || typeof item !== 'object') return false
+    if (item.type === 'habit') {
+      const id = item.habitId
+      if (!id) return false
+      if (habitIdsForBoard && !habitIdsForBoard.has(id)) return false
+      if (seenHabitRefs.has(id)) return false
+      seenHabitRefs.add(id)
+      return true
+    }
     if (item.type === 'task') {
       const id = item.taskId
       if (!id || !taskIds.has(id) || !activeTaskIds.has(id)) return false

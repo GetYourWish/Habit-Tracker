@@ -4,6 +4,7 @@ import Reviews from './components/Reviews'
 import Settings from './components/Settings'
 import SetupScreen from './components/SetupScreen'
 import { WorkingOnMarker, WorkingOnPopup } from './components/WorkingOnMarker'
+import RecursiveMark from './components/RecursiveMark'
 import { validateAndHealData, generateId, calculateTaskScoreBreakdown, checkSchemaVersion } from '@habit-tracker/core'
 import './App.css'
 
