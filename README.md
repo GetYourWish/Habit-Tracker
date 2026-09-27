@@ -1,6 +1,5 @@
 # Habit Tracker
 
-**A private, local-first habit tracker for Windows and Android that helps you build routines, check in at the right time, and see your progress.**
 
 Habit Tracker keeps your habits and history in a file you control. There is no account to create and no cloud service required. Use the desktop app on Windows, optionally keep the same habits on Android, and let a file-sync service such as Syncthing carry the shared file between them.
 
