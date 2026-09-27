@@ -2,7 +2,7 @@
   "name": "habit-tracker-monorepo",
   "private": true,
   "version": "1.0.0",
-  "description": "Local-first habit tracker for desktop & Android — build routines that stick",
+  "description": "Private, local-first habit tracker for Windows and Android with flexible routines, progress reviews, and optional Syncthing sync.",
   "workspaces": [
     "packages/*",
     "desktop",
