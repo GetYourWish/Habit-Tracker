@@ -208,7 +208,7 @@ describe('app boot pipeline (full tree render)', () => {
       // 'ready' transition used to be invisible to React, so the app sat on
       // 'Loading…' even though the file had loaded perfectly.
       expect(texts).not.toContain('Loading…')
-      expect(texts).toContain('Board')
+      expect(texts).toContain('Today')
       expect(texts).toContain('Settings')
     })
   })

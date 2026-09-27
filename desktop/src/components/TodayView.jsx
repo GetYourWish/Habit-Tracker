@@ -6,6 +6,7 @@ import {
   describeFrequency,
   resolveTimesOfDay,
   slotForHour,
+  systemFrequencies,
   TIME_OF_DAY_SLOTS
 } from '@habit-tracker/core'
 
@@ -14,9 +15,17 @@ import {
 // day, morning + evening" (brushing teeth) shows one row per occurrence in
 // its time section, each with its own check circle. Habits without a
 // preferred time live in "Anytime".
+//
+// 2026-09-27: a habit whose frequencyId points at nothing (legacy/hand
+// edited files) is treated as an EVERY-DAY habit instead of being buried
+// in "resting" with a dead check button — the user sees it, can check it,
+// and re-picking a cadence in the editor heals the data.
 
 const SLOT_SECTIONS = [...TIME_OF_DAY_SLOTS]
 const ANYTIME = { key: 'anytime', label: 'Anytime', icon: '⏰', hint: 'whenever it fits' }
+
+// Fallback cadence for habits with a broken frequency reference.
+const FALLBACK_FREQUENCY = systemFrequencies().find(f => f.key === 'daily')
 
 function todayYmd() {
   const d = new Date()
@@ -83,7 +92,7 @@ export default function TodayView({ data, onSave, onEditHabit, onAddHabit }) {
     const week = last7Days(today)
     const list = (data.habits || []).filter(h => !h.archived)
     return list.map(habit => {
-      const frequency = freqById[habit.frequencyId] || null
+      const frequency = freqById[habit.frequencyId] || FALLBACK_FREQUENCY
       const status = evaluateHabitStatus(habit, frequency, completionsByHabit, today, weekStartsOn)
       const slots = resolveTimesOfDay(habit, frequency)
       const streak = calculateStreak(habit, frequency, completionsByHabit, today, weekStartsOn)

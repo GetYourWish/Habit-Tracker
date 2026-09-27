@@ -228,6 +228,197 @@
           "basePoints": 1,
           "finalScore": 1.1
         }
+      ],
+      "frequencies": [
+        {
+          "key": "daily",
+          "label": "Every day",
+          "icon": "☀️",
+          "color": "#34d399",
+          "kind": "daily",
+          "timesPerPeriod": 1,
+          "graceDays": 0,
+          "system": true,
+          "id": "0b6d2cbe-0100-400b-8001-0a6d8ec8000b",
+          "createdAt": "1970-01-01T00:00:00.000Z"
+        },
+        {
+          "key": "weekdays",
+          "label": "Weekdays",
+          "icon": "💼",
+          "color": "#60a5fa",
+          "kind": "weekdays",
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "timesPerPeriod": 1,
+          "graceDays": 0,
+          "system": true,
+          "id": "66804f12-0100-4066-8001-678085270066",
+          "createdAt": "1970-01-01T00:00:00.000Z"
+        },
+        {
+          "key": "weekends",
+          "label": "Weekends",
+          "icon": "🌇",
+          "color": "#fbbf24",
+          "kind": "weekdays",
+          "weekdays": [
+            0,
+            6
+          ],
+          "timesPerPeriod": 1,
+          "graceDays": 0,
+          "system": true,
+          "id": "376127e3-0100-4037-8001-3661eeae0037",
+          "createdAt": "1970-01-01T00:00:00.000Z"
+        },
+        {
+          "key": "every-other-day",
+          "label": "Every other day",
+          "icon": "🔁",
+          "color": "#2dd4bf",
+          "kind": "every-n",
+          "interval": 2,
+          "timesPerPeriod": 1,
+          "graceDays": 1,
+          "system": true,
+          "id": "8d24ea5c-0101-4-72-8001-8c25cc750-72",
+          "createdAt": "1970-01-01T00:00:00.000Z"
+        },
+        {
+          "key": "weekly",
+          "label": "Once a week",
+          "icon": "📅",
+          "color": "#a78bfa",
+          "kind": "weekly",
+          "timesPerPeriod": 1,
+          "graceDays": 0,
+          "system": true,
+          "id": "f1595dce-0100-40-e-8001-f059ed2800-e",
+          "createdAt": "1970-01-01T00:00:00.000Z"
+        },
+        {
+          "key": "twice-weekly",
+          "label": "Twice a week",
+          "icon": "✌️",
+          "color": "#f472b6",
+          "kind": "weekly",
+          "timesPerPeriod": 2,
+          "graceDays": 0,
+          "system": true,
+          "id": "e8254d05-0100-4-17-8001-e925b3510-17",
+          "createdAt": "1970-01-01T00:00:00.000Z"
+        },
+        {
+          "key": "monthly",
+          "label": "Once a month",
+          "icon": "🗓️",
+          "color": "#22d3ee",
+          "kind": "monthly",
+          "timesPerPeriod": 1,
+          "graceDays": 0,
+          "system": true,
+          "id": "ee857e56-0100-4-11-8001-ef85c1da0-11",
+          "createdAt": "1970-01-01T00:00:00.000Z"
+        },
+        {
+          "key": "thrice-weekly",
+          "label": "Three times a week",
+          "icon": "🎯",
+          "color": "#fb7185",
+          "kind": "weekly",
+          "timesPerPeriod": 3,
+          "graceDays": 0,
+          "system": true,
+          "id": "b9abb644-0101-4-46-8001-b8aaba870-46",
+          "createdAt": "1970-01-01T00:00:00.000Z"
+        },
+        {
+          "key": "mondays",
+          "label": "Every Monday",
+          "icon": "1️⃣",
+          "color": "#38bdf8",
+          "kind": "weekly",
+          "weekdays": [
+            1
+          ],
+          "timesPerPeriod": 1,
+          "graceDays": 0,
+          "system": true,
+          "id": "d912c21e-0100-4-26-8001-d8127fd30-26",
+          "createdAt": "1970-01-01T00:00:00.000Z"
+        },
+        {
+          "key": "saturdays",
+          "label": "Every Saturday",
+          "icon": "6️⃣",
+          "color": "#fb923c",
+          "kind": "weekly",
+          "weekdays": [
+            6
+          ],
+          "timesPerPeriod": 1,
+          "graceDays": 0,
+          "system": true,
+          "id": "2e777a9f-0100-402e-8001-2f77a02e002e",
+          "createdAt": "1970-01-01T00:00:00.000Z"
+        },
+        {
+          "key": "every-3-days",
+          "label": "Every 3 days",
+          "icon": "🔁",
+          "color": "#c084fc",
+          "kind": "every-n",
+          "interval": 3,
+          "timesPerPeriod": 1,
+          "graceDays": 1,
+          "system": true,
+          "id": "59d790b8-0100-4059-8001-58d760c50059",
+          "createdAt": "1970-01-01T00:00:00.000Z"
+        },
+        {
+          "key": "every-2-weeks",
+          "label": "Every 2 weeks",
+          "icon": "🔂",
+          "color": "#facc15",
+          "kind": "every-n-weeks",
+          "interval": 2,
+          "timesPerPeriod": 1,
+          "graceDays": 7,
+          "system": true,
+          "id": "97c86817-0101-4-68-8001-96c9680b0-68",
+          "createdAt": "1970-01-01T00:00:00.000Z"
+        },
+        {
+          "key": "twice-daily",
+          "label": "Twice a day",
+          "icon": "✌️",
+          "color": "#2dd4bf",
+          "kind": "daily",
+          "timesPerDay": 2,
+          "timesPerPeriod": 1,
+          "graceDays": 0,
+          "system": true,
+          "id": "7903257f-0100-4079-8001-7803c98f0079",
+          "createdAt": "1970-01-01T00:00:00.000Z"
+        },
+        {
+          "key": "yearly",
+          "label": "Once a year",
+          "icon": "🎂",
+          "color": "#f43f5e",
+          "kind": "yearly",
+          "timesPerPeriod": 1,
+          "graceDays": 0,
+          "system": true,
+          "id": "ee35bbab-0100-4-11-8001-ef350adb0-11",
+          "createdAt": "1970-01-01T00:00:00.000Z"
+        }
       ]
     }
   },
@@ -446,7 +637,198 @@
         }
       ],
       "workingOn": [],
-      "logs": []
+      "logs": [],
+      "frequencies": [
+        {
+          "key": "daily",
+          "label": "Every day",
+          "icon": "☀️",
+          "color": "#34d399",
+          "kind": "daily",
+          "timesPerPeriod": 1,
+          "graceDays": 0,
+          "system": true,
+          "id": "0b6d2cbe-0100-400b-8001-0a6d8ec8000b",
+          "createdAt": "1970-01-01T00:00:00.000Z"
+        },
+        {
+          "key": "weekdays",
+          "label": "Weekdays",
+          "icon": "💼",
+          "color": "#60a5fa",
+          "kind": "weekdays",
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "timesPerPeriod": 1,
+          "graceDays": 0,
+          "system": true,
+          "id": "66804f12-0100-4066-8001-678085270066",
+          "createdAt": "1970-01-01T00:00:00.000Z"
+        },
+        {
+          "key": "weekends",
+          "label": "Weekends",
+          "icon": "🌇",
+          "color": "#fbbf24",
+          "kind": "weekdays",
+          "weekdays": [
+            0,
+            6
+          ],
+          "timesPerPeriod": 1,
+          "graceDays": 0,
+          "system": true,
+          "id": "376127e3-0100-4037-8001-3661eeae0037",
+          "createdAt": "1970-01-01T00:00:00.000Z"
+        },
+        {
+          "key": "every-other-day",
+          "label": "Every other day",
+          "icon": "🔁",
+          "color": "#2dd4bf",
+          "kind": "every-n",
+          "interval": 2,
+          "timesPerPeriod": 1,
+          "graceDays": 1,
+          "system": true,
+          "id": "8d24ea5c-0101-4-72-8001-8c25cc750-72",
+          "createdAt": "1970-01-01T00:00:00.000Z"
+        },
+        {
+          "key": "weekly",
+          "label": "Once a week",
+          "icon": "📅",
+          "color": "#a78bfa",
+          "kind": "weekly",
+          "timesPerPeriod": 1,
+          "graceDays": 0,
+          "system": true,
+          "id": "f1595dce-0100-40-e-8001-f059ed2800-e",
+          "createdAt": "1970-01-01T00:00:00.000Z"
+        },
+        {
+          "key": "twice-weekly",
+          "label": "Twice a week",
+          "icon": "✌️",
+          "color": "#f472b6",
+          "kind": "weekly",
+          "timesPerPeriod": 2,
+          "graceDays": 0,
+          "system": true,
+          "id": "e8254d05-0100-4-17-8001-e925b3510-17",
+          "createdAt": "1970-01-01T00:00:00.000Z"
+        },
+        {
+          "key": "monthly",
+          "label": "Once a month",
+          "icon": "🗓️",
+          "color": "#22d3ee",
+          "kind": "monthly",
+          "timesPerPeriod": 1,
+          "graceDays": 0,
+          "system": true,
+          "id": "ee857e56-0100-4-11-8001-ef85c1da0-11",
+          "createdAt": "1970-01-01T00:00:00.000Z"
+        },
+        {
+          "key": "thrice-weekly",
+          "label": "Three times a week",
+          "icon": "🎯",
+          "color": "#fb7185",
+          "kind": "weekly",
+          "timesPerPeriod": 3,
+          "graceDays": 0,
+          "system": true,
+          "id": "b9abb644-0101-4-46-8001-b8aaba870-46",
+          "createdAt": "1970-01-01T00:00:00.000Z"
+        },
+        {
+          "key": "mondays",
+          "label": "Every Monday",
+          "icon": "1️⃣",
+          "color": "#38bdf8",
+          "kind": "weekly",
+          "weekdays": [
+            1
+          ],
+          "timesPerPeriod": 1,
+          "graceDays": 0,
+          "system": true,
+          "id": "d912c21e-0100-4-26-8001-d8127fd30-26",
+          "createdAt": "1970-01-01T00:00:00.000Z"
+        },
+        {
+          "key": "saturdays",
+          "label": "Every Saturday",
+          "icon": "6️⃣",
+          "color": "#fb923c",
+          "kind": "weekly",
+          "weekdays": [
+            6
+          ],
+          "timesPerPeriod": 1,
+          "graceDays": 0,
+          "system": true,
+          "id": "2e777a9f-0100-402e-8001-2f77a02e002e",
+          "createdAt": "1970-01-01T00:00:00.000Z"
+        },
+        {
+          "key": "every-3-days",
+          "label": "Every 3 days",
+          "icon": "🔁",
+          "color": "#c084fc",
+          "kind": "every-n",
+          "interval": 3,
+          "timesPerPeriod": 1,
+          "graceDays": 1,
+          "system": true,
+          "id": "59d790b8-0100-4059-8001-58d760c50059",
+          "createdAt": "1970-01-01T00:00:00.000Z"
+        },
+        {
+          "key": "every-2-weeks",
+          "label": "Every 2 weeks",
+          "icon": "🔂",
+          "color": "#facc15",
+          "kind": "every-n-weeks",
+          "interval": 2,
+          "timesPerPeriod": 1,
+          "graceDays": 7,
+          "system": true,
+          "id": "97c86817-0101-4-68-8001-96c9680b0-68",
+          "createdAt": "1970-01-01T00:00:00.000Z"
+        },
+        {
+          "key": "twice-daily",
+          "label": "Twice a day",
+          "icon": "✌️",
+          "color": "#2dd4bf",
+          "kind": "daily",
+          "timesPerDay": 2,
+          "timesPerPeriod": 1,
+          "graceDays": 0,
+          "system": true,
+          "id": "7903257f-0100-4079-8001-7803c98f0079",
+          "createdAt": "1970-01-01T00:00:00.000Z"
+        },
+        {
+          "key": "yearly",
+          "label": "Once a year",
+          "icon": "🎂",
+          "color": "#f43f5e",
+          "kind": "yearly",
+          "timesPerPeriod": 1,
+          "graceDays": 0,
+          "system": true,
+          "id": "ee35bbab-0100-4-11-8001-ef350adb0-11",
+          "createdAt": "1970-01-01T00:00:00.000Z"
+        }
+      ]
     }
   },
   "habit-legacy.json": {
@@ -527,6 +909,197 @@
         }
       ],
       "schemaVersion": 1,
+      "frequencies": [
+        {
+          "key": "daily",
+          "label": "Every day",
+          "icon": "☀️",
+          "color": "#34d399",
+          "kind": "daily",
+          "timesPerPeriod": 1,
+          "graceDays": 0,
+          "system": true,
+          "id": "0b6d2cbe-0100-400b-8001-0a6d8ec8000b",
+          "createdAt": "1970-01-01T00:00:00.000Z"
+        },
+        {
+          "key": "weekdays",
+          "label": "Weekdays",
+          "icon": "💼",
+          "color": "#60a5fa",
+          "kind": "weekdays",
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "timesPerPeriod": 1,
+          "graceDays": 0,
+          "system": true,
+          "id": "66804f12-0100-4066-8001-678085270066",
+          "createdAt": "1970-01-01T00:00:00.000Z"
+        },
+        {
+          "key": "weekends",
+          "label": "Weekends",
+          "icon": "🌇",
+          "color": "#fbbf24",
+          "kind": "weekdays",
+          "weekdays": [
+            0,
+            6
+          ],
+          "timesPerPeriod": 1,
+          "graceDays": 0,
+          "system": true,
+          "id": "376127e3-0100-4037-8001-3661eeae0037",
+          "createdAt": "1970-01-01T00:00:00.000Z"
+        },
+        {
+          "key": "every-other-day",
+          "label": "Every other day",
+          "icon": "🔁",
+          "color": "#2dd4bf",
+          "kind": "every-n",
+          "interval": 2,
+          "timesPerPeriod": 1,
+          "graceDays": 1,
+          "system": true,
+          "id": "8d24ea5c-0101-4-72-8001-8c25cc750-72",
+          "createdAt": "1970-01-01T00:00:00.000Z"
+        },
+        {
+          "key": "weekly",
+          "label": "Once a week",
+          "icon": "📅",
+          "color": "#a78bfa",
+          "kind": "weekly",
+          "timesPerPeriod": 1,
+          "graceDays": 0,
+          "system": true,
+          "id": "f1595dce-0100-40-e-8001-f059ed2800-e",
+          "createdAt": "1970-01-01T00:00:00.000Z"
+        },
+        {
+          "key": "twice-weekly",
+          "label": "Twice a week",
+          "icon": "✌️",
+          "color": "#f472b6",
+          "kind": "weekly",
+          "timesPerPeriod": 2,
+          "graceDays": 0,
+          "system": true,
+          "id": "e8254d05-0100-4-17-8001-e925b3510-17",
+          "createdAt": "1970-01-01T00:00:00.000Z"
+        },
+        {
+          "key": "monthly",
+          "label": "Once a month",
+          "icon": "🗓️",
+          "color": "#22d3ee",
+          "kind": "monthly",
+          "timesPerPeriod": 1,
+          "graceDays": 0,
+          "system": true,
+          "id": "ee857e56-0100-4-11-8001-ef85c1da0-11",
+          "createdAt": "1970-01-01T00:00:00.000Z"
+        },
+        {
+          "key": "thrice-weekly",
+          "label": "Three times a week",
+          "icon": "🎯",
+          "color": "#fb7185",
+          "kind": "weekly",
+          "timesPerPeriod": 3,
+          "graceDays": 0,
+          "system": true,
+          "id": "b9abb644-0101-4-46-8001-b8aaba870-46",
+          "createdAt": "1970-01-01T00:00:00.000Z"
+        },
+        {
+          "key": "mondays",
+          "label": "Every Monday",
+          "icon": "1️⃣",
+          "color": "#38bdf8",
+          "kind": "weekly",
+          "weekdays": [
+            1
+          ],
+          "timesPerPeriod": 1,
+          "graceDays": 0,
+          "system": true,
+          "id": "d912c21e-0100-4-26-8001-d8127fd30-26",
+          "createdAt": "1970-01-01T00:00:00.000Z"
+        },
+        {
+          "key": "saturdays",
+          "label": "Every Saturday",
+          "icon": "6️⃣",
+          "color": "#fb923c",
+          "kind": "weekly",
+          "weekdays": [
+            6
+          ],
+          "timesPerPeriod": 1,
+          "graceDays": 0,
+          "system": true,
+          "id": "2e777a9f-0100-402e-8001-2f77a02e002e",
+          "createdAt": "1970-01-01T00:00:00.000Z"
+        },
+        {
+          "key": "every-3-days",
+          "label": "Every 3 days",
+          "icon": "🔁",
+          "color": "#c084fc",
+          "kind": "every-n",
+          "interval": 3,
+          "timesPerPeriod": 1,
+          "graceDays": 1,
+          "system": true,
+          "id": "59d790b8-0100-4059-8001-58d760c50059",
+          "createdAt": "1970-01-01T00:00:00.000Z"
+        },
+        {
+          "key": "every-2-weeks",
+          "label": "Every 2 weeks",
+          "icon": "🔂",
+          "color": "#facc15",
+          "kind": "every-n-weeks",
+          "interval": 2,
+          "timesPerPeriod": 1,
+          "graceDays": 7,
+          "system": true,
+          "id": "97c86817-0101-4-68-8001-96c9680b0-68",
+          "createdAt": "1970-01-01T00:00:00.000Z"
+        },
+        {
+          "key": "twice-daily",
+          "label": "Twice a day",
+          "icon": "✌️",
+          "color": "#2dd4bf",
+          "kind": "daily",
+          "timesPerDay": 2,
+          "timesPerPeriod": 1,
+          "graceDays": 0,
+          "system": true,
+          "id": "7903257f-0100-4079-8001-7803c98f0079",
+          "createdAt": "1970-01-01T00:00:00.000Z"
+        },
+        {
+          "key": "yearly",
+          "label": "Once a year",
+          "icon": "🎂",
+          "color": "#f43f5e",
+          "kind": "yearly",
+          "timesPerPeriod": 1,
+          "graceDays": 0,
+          "system": true,
+          "id": "ee35bbab-0100-4-11-8001-ef350adb0-11",
+          "createdAt": "1970-01-01T00:00:00.000Z"
+        }
+      ],
       "workingOn": [],
       "logs": []
     }
@@ -569,6 +1142,170 @@
           "timesPerPeriod": 1,
           "graceDays": 0,
           "system": true
+        },
+        {
+          "key": "weekdays",
+          "label": "Weekdays",
+          "icon": "💼",
+          "color": "#60a5fa",
+          "kind": "weekdays",
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "timesPerPeriod": 1,
+          "graceDays": 0,
+          "system": true,
+          "id": "66804f12-0100-4066-8001-678085270066",
+          "createdAt": "1970-01-01T00:00:00.000Z"
+        },
+        {
+          "key": "weekends",
+          "label": "Weekends",
+          "icon": "🌇",
+          "color": "#fbbf24",
+          "kind": "weekdays",
+          "weekdays": [
+            0,
+            6
+          ],
+          "timesPerPeriod": 1,
+          "graceDays": 0,
+          "system": true,
+          "id": "376127e3-0100-4037-8001-3661eeae0037",
+          "createdAt": "1970-01-01T00:00:00.000Z"
+        },
+        {
+          "key": "every-other-day",
+          "label": "Every other day",
+          "icon": "🔁",
+          "color": "#2dd4bf",
+          "kind": "every-n",
+          "interval": 2,
+          "timesPerPeriod": 1,
+          "graceDays": 1,
+          "system": true,
+          "id": "8d24ea5c-0101-4-72-8001-8c25cc750-72",
+          "createdAt": "1970-01-01T00:00:00.000Z"
+        },
+        {
+          "key": "weekly",
+          "label": "Once a week",
+          "icon": "📅",
+          "color": "#a78bfa",
+          "kind": "weekly",
+          "timesPerPeriod": 1,
+          "graceDays": 0,
+          "system": true,
+          "id": "f1595dce-0100-40-e-8001-f059ed2800-e",
+          "createdAt": "1970-01-01T00:00:00.000Z"
+        },
+        {
+          "key": "twice-weekly",
+          "label": "Twice a week",
+          "icon": "✌️",
+          "color": "#f472b6",
+          "kind": "weekly",
+          "timesPerPeriod": 2,
+          "graceDays": 0,
+          "system": true,
+          "id": "e8254d05-0100-4-17-8001-e925b3510-17",
+          "createdAt": "1970-01-01T00:00:00.000Z"
+        },
+        {
+          "key": "monthly",
+          "label": "Once a month",
+          "icon": "🗓️",
+          "color": "#22d3ee",
+          "kind": "monthly",
+          "timesPerPeriod": 1,
+          "graceDays": 0,
+          "system": true,
+          "id": "ee857e56-0100-4-11-8001-ef85c1da0-11",
+          "createdAt": "1970-01-01T00:00:00.000Z"
+        },
+        {
+          "key": "thrice-weekly",
+          "label": "Three times a week",
+          "icon": "🎯",
+          "color": "#fb7185",
+          "kind": "weekly",
+          "timesPerPeriod": 3,
+          "graceDays": 0,
+          "system": true,
+          "id": "b9abb644-0101-4-46-8001-b8aaba870-46",
+          "createdAt": "1970-01-01T00:00:00.000Z"
+        },
+        {
+          "key": "mondays",
+          "label": "Every Monday",
+          "icon": "1️⃣",
+          "color": "#38bdf8",
+          "kind": "weekly",
+          "weekdays": [
+            1
+          ],
+          "timesPerPeriod": 1,
+          "graceDays": 0,
+          "system": true,
+          "id": "d912c21e-0100-4-26-8001-d8127fd30-26",
+          "createdAt": "1970-01-01T00:00:00.000Z"
+        },
+        {
+          "key": "saturdays",
+          "label": "Every Saturday",
+          "icon": "6️⃣",
+          "color": "#fb923c",
+          "kind": "weekly",
+          "weekdays": [
+            6
+          ],
+          "timesPerPeriod": 1,
+          "graceDays": 0,
+          "system": true,
+          "id": "2e777a9f-0100-402e-8001-2f77a02e002e",
+          "createdAt": "1970-01-01T00:00:00.000Z"
+        },
+        {
+          "key": "every-3-days",
+          "label": "Every 3 days",
+          "icon": "🔁",
+          "color": "#c084fc",
+          "kind": "every-n",
+          "interval": 3,
+          "timesPerPeriod": 1,
+          "graceDays": 1,
+          "system": true,
+          "id": "59d790b8-0100-4059-8001-58d760c50059",
+          "createdAt": "1970-01-01T00:00:00.000Z"
+        },
+        {
+          "key": "every-2-weeks",
+          "label": "Every 2 weeks",
+          "icon": "🔂",
+          "color": "#facc15",
+          "kind": "every-n-weeks",
+          "interval": 2,
+          "timesPerPeriod": 1,
+          "graceDays": 7,
+          "system": true,
+          "id": "97c86817-0101-4-68-8001-96c9680b0-68",
+          "createdAt": "1970-01-01T00:00:00.000Z"
+        },
+        {
+          "key": "yearly",
+          "label": "Once a year",
+          "icon": "🎂",
+          "color": "#f43f5e",
+          "kind": "yearly",
+          "timesPerPeriod": 1,
+          "graceDays": 0,
+          "system": true,
+          "id": "ee35bbab-0100-4-11-8001-ef350adb0-11",
+          "createdAt": "1970-01-01T00:00:00.000Z"
         }
       ],
       "categories": [

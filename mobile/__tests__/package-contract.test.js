@@ -92,20 +92,19 @@ describe('removed risky packages stay removed', () => {
   })
 })
 
-describe('BoardScreen renders the board with first-party components only', () => {
-  test('the board list is a plain RN FlatList (no drag library)', () => {
-    const board = fs.readFileSync(path.join(mobileRoot, 'src', 'components', 'BoardScreen.js'), 'utf8')
-    expect(board).toMatch(/import\s*\{[^}]*FlatList[^}]*\}\s*from\s+'react-native'/)
-    expect(board).toMatch(/<FlatList/)
-    // the reorder flow uses the moveItem action (desktop parity)
-    expect(board).toMatch(/\bmoveItem\b/)
+describe('TodayScreen renders with first-party components only', () => {
+  test('the today list is a plain RN ScrollView + RefreshControl (no drag library)', () => {
+    const today = fs.readFileSync(path.join(mobileRoot, 'src', 'components', 'TodayScreen.js'), 'utf8')
+    expect(today).toMatch(/import\s*\{[^}]*ScrollView[^}]*\}\s*from\s*'react-native'/)
+    expect(today).toMatch(/<ScrollView/)
+    // check-ins write through the toggleHabitCompletion action (desktop parity)
+    expect(today).toMatch(/\btoggleHabitCompletion\b/)
   })
 
-  test('rows support rearrange mode with up/down move buttons', () => {
-    const rows = fs.readFileSync(path.join(mobileRoot, 'src', 'components', 'rows.js'), 'utf8')
-    expect(rows).toMatch(/onMoveUp/)
-    expect(rows).toMatch(/onMoveDown/)
-    expect(rows).toMatch(/canMoveUp/)
-    expect(rows).toMatch(/canMoveDown/)
+  test('HabitsScreen rows support reorder with up/down move buttons', () => {
+    const habits = fs.readFileSync(path.join(mobileRoot, 'src', 'components', 'HabitsScreen.js'), 'utf8')
+    expect(habits).toMatch(/moveHabit/)
+    expect(habits).toMatch(/chevron-up/)
+    expect(habits).toMatch(/chevron-down/)
   })
 })

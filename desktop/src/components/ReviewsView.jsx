@@ -6,11 +6,16 @@ import {
   calculateBestStreak,
   totalCompletions,
   describeFrequency,
-  isScheduledOn
+  isScheduledOn,
+  systemFrequencies
 } from '@habit-tracker/core'
 
 // ReviewsView — how the routines are going: overall tiles + a per-habit
 // 30-day dot grid, streaks, best streaks and consistency.
+
+// Fallback cadence for habits with a broken frequency reference (parity
+// with TodayView — legacy files get working rows everywhere).
+const FALLBACK_FREQUENCY = systemFrequencies().find(f => f.key === 'daily')
 
 const RANGES = [
   { label: '30 days', days: 30 },
@@ -55,7 +60,7 @@ export default function ReviewsView({ data }) {
   // Per-habit rows: per-day completion counts for the dot grid.
   const rows = useMemo(() => {
     return activeHabits.map(habit => {
-      const frequency = freqById[habit.frequencyId] || null
+      const frequency = freqById[habit.frequencyId] || FALLBACK_FREQUENCY
       const byDate = {}
       for (const c of completionsByHabit[habit.id] || []) {
         byDate[c.date] = (byDate[c.date] || 0) + 1
@@ -95,7 +100,7 @@ export default function ReviewsView({ data }) {
       let allDone = true
       let any = false
       for (const habit of activeHabits) {
-        const frequency = freqById[habit.frequencyId] || null
+        const frequency = freqById[habit.frequencyId] || FALLBACK_FREQUENCY
         if (!frequency) continue
         const st = evaluateHabitStatus(habit, frequency, completionsByHabit, d, weekStartsOn)
         if (st.scheduled || st.goal > 1) {

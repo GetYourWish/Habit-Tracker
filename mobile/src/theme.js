@@ -38,9 +38,10 @@ export const LIGHT = {
   shadow: '#0f172a',
   // solid app background (v1.0.11) — desktop light canvas tint
   bgCanvas: '#EEF2FF',
-  // violet-600 family — readable on white surfaces
-  flowState: '#7c3aed',
-  flowStatePressed: '#6d28d9',
+  // v1.1.0 habit-era accents — the desktop habit brand is mint/emerald
+  // (--habit-accent #34d399); emerald-600 reads on white surfaces
+  flowState: '#059669',
+  flowStatePressed: '#047857',
   danger: '#dc2626'
 }
 
@@ -63,18 +64,27 @@ export const DARK = {
   shadow: '#000000',
   // solid app background (v1.0.11) — desktop deep canvas navy
   bgCanvas: '#0B0D12',
-  // violet-500 family — pops on dark surfaces
-  flowState: '#8b5cf6',
-  flowStatePressed: '#7c3aed',
+  // v1.1.0 habit-era accents — mint pops on dark surfaces (desktop parity)
+  flowState: '#34d399',
+  flowStatePressed: '#10b981',
   danger: '#ef4444'
 }
 
 // Shared accents (theme-independent, same values as desktop)
 export const ACCENTS = {
-  flowState: '#8b5cf6', // settings.flowStateColor default — working-on highlight
+  flowState: '#10b981', // settings.flowStateColor default — working-on highlight
   danger: '#dc2626',
   success: '#4ade80',
   warning: '#fbbf24'
+}
+
+// Habit-brand accents (desktop parity: --habit-accent mint + section tints)
+export const HABIT_ACCENTS = {
+  mint: '#34d399',
+  cyan: '#22d3ee',
+  amber: '#fbbf24',
+  rose: '#fb7185',
+  violet: '#a78bfa'
 }
 
 // Shared type scale — one place so every screen renders text with the same

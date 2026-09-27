@@ -60,7 +60,7 @@ export function SetupScreen({ theme, mode, folderUri, errorMessage, onPickFolder
       : mode === 'regrant'
         ? (errorMessage || 'Android revoked access to the data folder.') +
           '\n\nRe-select your Syncthing folder to continue. Your data was not modified.'
-        : 'All your tasks and history live in a single habit.json file inside your Syncthing folder — the same file the desktop app uses. Pick that folder to begin.'
+        : 'All your habits and history live in a single habit.json file inside your Syncthing folder — the same file the desktop app uses. Pick that folder to begin.'
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.bgCanvas }}>

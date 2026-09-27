@@ -71,9 +71,10 @@ belongs to.
 > (vite dev server) with a localStorage-backed mock of the Electron API —
 > handy for quick UI work without launching Electron.
 
-> The `mobile/` workspace still shows the legacy task board UI; it reads and
-> preserves the same `habit.json` safely (same core healing/gate) but hasn't
-> been redesigned around habits yet.
+> The `mobile/` workspace is at full habit parity since v1.1.0: Today /
+> Habits / Reviews / Settings with the same habit editor (emoji catalogue,
+> cadence chips, times-per-day and per-occurrence best-time-of-day), the same
+> check-in model and the same healing as the desktop.
 
 ---
 
@@ -129,6 +130,17 @@ scores, identical healing, identical schema gate. Android-native UX (Material
 ripples, bottom navigation, FAB, edge-to-edge) on the desktop app's aurora-glass
 theme.
 
+- **Today**: the main page — greeting + day progress ring, sections
+  Morning / Afternoon / Evening / Night / Anytime, one row per occurrence
+  with its own check circle, streak flames, last-7-days dots and a
+  collapsible "resting today" list
+- **Habits**: manage everything — grouped rows, reorder, archive, delete,
+  and the group (category) manager
+- **Reviews**: perfect-days / check-ins / best-streak tiles plus per-habit
+  30- and 90-day dot grids with streak and consistency
+- **Editor**: the same sheet as the desktop — 350+ emoji icons in categories
+  with search and paste-your-own, colors, groups, single-select cadence
+  chips, times-per-day stepper and one best-time-of-day per occurrence
 - **Storage**: the folder is picked once via Android's Storage Access Framework
   (your Syncthing folder — no broad storage permission); permission can be
   re-granted from the setup screen if Android revokes it

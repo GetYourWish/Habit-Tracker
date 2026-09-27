@@ -62,7 +62,7 @@ describe('icon name audit (every glyph resolves in material-community)', () => {
 
   test('the audit covers the whole app tree', () => {
     expect(files.length).toBeGreaterThanOrEqual(10)
-    expect(files.map(f => path.relative(mobileRoot, f))).toContain('src/components/BoardScreen.js')
+    expect(files.map(f => path.relative(mobileRoot, f))).toContain('src/components/TodayScreen.js')
   })
 
   test.each(files.map(f => [path.relative(mobileRoot, f), f]))(

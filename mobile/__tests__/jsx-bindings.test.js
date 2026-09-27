@@ -3,7 +3,7 @@
 // a local declaration).
 //
 // REGRESSION THIS GUARDS:
-//   CategorySheet.js rendered <TextInput> in its create-category form while
+//   HabitSheet.js renders <TextInput> in its create-category form while
 //   TextInput was NOT in the react-native import list — the identifier was
 //   `undefined`, so the very first "New category" tap would crash the app
 //   with "Element type is invalid: expected a string … but got: undefined".
@@ -70,7 +70,7 @@ describe('JSX binding audit (no undefined element types)', () => {
 
   test('audit covers the whole app tree', () => {
     expect(files.length).toBeGreaterThanOrEqual(10)
-    expect(files.map(f => path.relative(MOBILE_ROOT, f))).toContain('src/components/CategorySheet.js')
+    expect(files.map(f => path.relative(MOBILE_ROOT, f))).toContain('src/components/HabitSheet.js')
   })
 
   test.each(files.map(f => [path.relative(MOBILE_ROOT, f), f]))('%s: every JSX tag resolves to a declared binding', (_rel, file) => {

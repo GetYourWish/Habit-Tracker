@@ -1,17 +1,22 @@
 // App root — theme resolution, screen switching, bottom navigation.
-// Mirrors desktop App.jsx: loading → schema gate → setup → (board | settings).
+// Mirrors desktop App.jsx: loading → schema gate → setup → today | habits |
+// reviews | settings, with the HabitSheet editor over everything.
+// (v1.1.0: the task-era Board is gone; the app is the habit app through
+// and through, at desktop parity.)
 
 import React, { useState, useCallback, useEffect } from 'react'
 import { View, Text, ActivityIndicator, StyleSheet, StatusBar } from 'react-native'
 import { useColorScheme } from 'react-native'
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context'
 import { buildTheme, SPACING } from './src/theme.js'
-import { updateSettings } from './src/actions.js'
+import { updateSettings, setHabitArchived, deleteHabit } from './src/actions.js'
 import { useTracker } from './src/hooks/useTracker.js'
 import { readLastCrash, clearLastCrash } from './src/diagnostics.js'
 import { AppBackground, BottomNav } from './src/components/ui.js'
-import { BoardScreen } from './src/components/BoardScreen.js'
+import { TodayScreen } from './src/components/TodayScreen.js'
+import { HabitsScreen } from './src/components/HabitsScreen.js'
 import { ReviewsScreen } from './src/components/ReviewsScreen.js'
+import { HabitSheet } from './src/components/HabitSheet.js'
 import { SetupScreen, SchemaErrorScreen } from './src/screens/SetupScreen.js'
 import { SettingsScreen } from './src/screens/SettingsScreen.js'
 import { CrashReportScreen } from './src/screens/CrashReportScreen.js'
@@ -20,7 +25,7 @@ import ErrorBoundary from './src/components/ErrorBoundary.js'
 import appJson from './app.json'
 
 // Shown on every loading/error screen so a screenshot identifies the exact
-// installed build ("Loading… v1.0.4") — we wasted a whole debugging round
+// installed build ("Loading… v1.1.0") — we wasted a whole debugging round
 // because there was no way to tell WHICH apk a 'stuck on loading' screenshot
 // came from.
 const APP_VERSION = appJson.expo.version || ''
@@ -42,10 +47,12 @@ export default function App() {
 
 function AppShell() {
   const scheme = useColorScheme()
-  const [tab, setTab] = useState('board')
+  const [tab, setTab] = useState('today')
   const [refreshing, setRefreshing] = useState(false)
   // undefined = not checked yet, null = no crash recorded, object = report
   const [crashReport, setCrashReport] = useState(undefined)
+  // The habit editor: null = create, object = edit, undefined = closed
+  const [editorHabit, setEditorHabit] = useState(undefined)
   // Optimistic theme: applied the instant the user taps an option so the
   // UI responds immediately; the store write (which takes a full verified
   // SAF write cycle, ~1–2 s on real hardware) lands underneath and then
@@ -119,6 +126,9 @@ function AppShell() {
     }
   }, [refresh, refreshing])
 
+  const openEditor = useCallback(habit => setEditorHabit(habit || null), [])
+  const closeEditor = useCallback(() => setEditorHabit(undefined), [])
+
   // last session recorded a fatal JS error → show it before anything else
   if (crashReport) {
     return (
@@ -132,7 +142,7 @@ function AppShell() {
   if (!booted) {
     return (
       <View style={[styles.fill, styles.center, { backgroundColor: '#EEF2FF' }]}>
-        <ActivityIndicator size="large" color="#8b5cf6" />
+        <ActivityIndicator size="large" color="#059669" />
         <Text style={{ color: '#666666', marginTop: SPACING.md }}>{LOADING_TEXT}</Text>
       </View>
     )
@@ -189,15 +199,14 @@ function AppShell() {
       <View style={[styles.fill, styles.center, { backgroundColor: theme.bgCanvas }]}>
         {statusBar}
         <AppBackground theme={theme} />
-        <ActivityIndicator size="large" color="#8b5cf6" />
+        <ActivityIndicator size="large" color="#059669" />
         <Text style={{ color: theme.textSecondary, marginTop: SPACING.md }}>{LOADING_TEXT}</Text>
       </View>
     )
   }
 
   // The main app. ErrorBoundary converts any render error (which in a
-  // release build would otherwise KILL THE PROCESS — the remote-reported
-  // "create a task / change the theme → crash") into an in-app recovery
+  // release build would otherwise KILL THE PROCESS) into an in-app recovery
   // card; the store underneath keeps every data guarantee.
   return (
     <View style={[styles.fill, { backgroundColor: theme.bgCanvas }]}>
@@ -205,14 +214,23 @@ function AppShell() {
       <AppBackground theme={theme} />
       <View style={{ flex: 1 }}>
         <ErrorBoundary onReloadData={() => store.load()}>
-          {tab === 'board' ? (
-            <BoardScreen
+          {tab === 'today' ? (
+            <TodayScreen
               theme={theme}
               state={state}
               store={store}
               refreshing={refreshing}
               onRefresh={handleRefresh}
-              onShowConflictInfo={() => setTab('settings')}
+              onAddHabit={() => openEditor(null)}
+              onEditHabit={openEditor}
+            />
+          ) : tab === 'habits' ? (
+            <HabitsScreen
+              theme={theme}
+              state={state}
+              store={store}
+              onAddHabit={() => openEditor(null)}
+              onEditHabit={openEditor}
             />
           ) : tab === 'reviews' ? (
             <ReviewsScreen theme={theme} state={state} store={store} />
@@ -235,12 +253,34 @@ function AppShell() {
           active={tab}
           onChange={setTab}
           tabs={[
-            { key: 'board', label: 'Board', icon: 'view-dashboard-outline', iconActive: 'view-dashboard' },
+            { key: 'today', label: 'Today', icon: 'calendar-today', iconActive: 'calendar-today' },
+            { key: 'habits', label: 'Habits', icon: 'format-list-checks', iconActive: 'format-list-checks' },
             { key: 'reviews', label: 'Reviews', icon: 'chart-bar', iconActive: 'chart-bar' },
             { key: 'settings', label: 'Settings', icon: 'cog-outline', iconActive: 'cog' }
           ]}
         />
       </View>
+
+      {editorHabit !== undefined && state.data ? (
+        <HabitSheet
+          theme={theme}
+          visible
+          data={state.data}
+          store={store}
+          habit={editorHabit}
+          onClose={closeEditor}
+          onArchive={habit =>
+            store
+              .mutate((d, now) => setHabitArchived(d, habit.id, !habit.archived, now))
+              .catch(() => {})
+          }
+          onDelete={habit =>
+            store
+              .mutate((d, now) => deleteHabit(d, habit.id, now))
+              .catch(() => {})
+          }
+        />
+      ) : null}
     </View>
   )
 }

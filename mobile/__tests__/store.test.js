@@ -12,19 +12,14 @@ const {
   isBackupName
 } = require('../src/storage/backups.js')
 const {
-  createTask,
-  completeTask,
-  toggleWorkingOn,
-  deleteTask,
-  addMarker,
+  createHabit,
+  updateHabit,
+  setHabitArchived,
+  deleteHabit,
+  toggleHabitCompletion,
   createCategory,
   updateSettings,
-  reorderBoard,
-  moveItem,
-  addTaskBelowMarker,
-  updateTaskText,
-  deleteMarker,
-  updateMarkerNote
+  frequencyFor
 } = require('../src/actions.js')
 
 // ---------------------------------------------------------------------------
@@ -176,123 +171,113 @@ describe('backups rotation', () => {
 })
 
 // ---------------------------------------------------------------------------
-// actions (pure transforms, desktop parity)
+// actions (pure transforms, desktop parity — habit model)
 // ---------------------------------------------------------------------------
 
 describe('actions', () => {
-  test('createTask prepends the board item (desktop handleCreateTask)', () => {
-    const base = sampleData()
-    const next = createTask(base, 'Write tests', '2026-02-01T10:00:00.000Z')
-    expect(next.tasks).toHaveLength(1)
-    expect(next.board[0].type).toBe('task')
-    expect(next.board[0].taskId).toBe(next.tasks[0].id)
+  const DAILY = 'f-daily'
+
+  function habitData() {
+    return {
+      ...sampleData(),
+      habits: [],
+      completions: [],
+      frequencies: [{ id: DAILY, key: 'daily', label: 'Every day', kind: 'daily', timesPerPeriod: 1, timesPerDay: 1 }]
+    }
+  }
+
+  test('createHabit appends the habit + board row (desktop HabitEditor)', () => {
+    const next = createHabit(habitData(), {
+      title: 'Brush teeth', icon: '🪥', color: '#34d399', frequencyId: DAILY, timesPerDay: 2, timesOfDay: ['morning', 'evening']
+    }, '2026-02-01T10:00:00.000Z')
+    expect(next.habits).toHaveLength(1)
+    const h = next.habits[0]
+    expect(h.title).toBe('Brush teeth')
+    expect(h.timesPerDay).toBe(2)
+    expect(h.timesOfDay).toEqual(['morning', 'evening'])
+    expect(h.archived).toBe(false)
+    expect(next.board).toEqual([{ type: 'habit', habitId: h.id }])
     expect(next.meta.updatedAt).toBe('2026-02-01T10:00:00.000Z')
   })
 
-  test('completeTask derives category strictly (marker above+below, same category)', () => {
-    const base = sampleData()
-    const withCat = addMarker(base, 'c-1', '2026-02-01T10:00:00.000Z') // appends marker 1 (Work)
-    const other = createCategory(withCat, { name: 'Home', color: '#fbbf24' }, '2026-02-01T10:00:01.000Z')
-    // strict rule: the SAME category must sit above AND below → second Work marker
-    const both = addMarker(other, 'c-1', '2026-02-01T10:00:02.000Z')
-
-    // board now: [marker(Work), marker(Home)] — insert a task BETWEEN them
-    const marker1 = both.markers[0].id
-    const tIn = addTaskBelowMarker(both, marker1, 'bracketed', '2026-02-01T10:00:03.000Z')
-    const bracketedTask = tIn.tasks[tIn.tasks.length - 1]
-    const doneIn = completeTask(tIn, { taskId: bracketedTask.id, difficultyId: 'd-hard', date: '2026-02-01', note: '' }, '2026-02-01T12:00:00.000Z')
-    const completed = doneIn.tasks.find(x => x.id === bracketedTask.id)
-    expect(completed.completion.categoryId).toBe('c-1')
-
-    // outside the bracket (prepended at the very top) → no category
-    const tOut = createTask(doneIn, 'outside', '2026-02-01T12:01:00.000Z')
-    const outsideTask = tOut.tasks[tOut.tasks.length - 1]
-    const doneOut = completeTask(tOut, { taskId: outsideTask.id, difficultyId: 'd-easy', date: '2026-02-01', note: '' }, '2026-02-01T12:02:00.000Z')
-    const completedOut = doneOut.tasks.find(x => x.id === outsideTask.id)
-    expect(completedOut.completion.categoryId).toBe(null)
+  test('createHabit omits per-day fields when they are default/absent', () => {
+    const next = createHabit(habitData(), { title: 'Walk', frequencyId: DAILY }, '2026-02-01T10:00:00.000Z')
+    const h = next.habits[0]
+    expect(h.timesPerDay).toBeUndefined()
+    expect(h.timesOfDay).toBeUndefined()
   })
 
-  test('completeTask writes the log entry with score breakdown (desktop fields)', () => {
-    const base = sampleData()
-    const t = createTask(base, 'do it', '2026-02-01T10:00:00.000Z')
-    const done = completeTask(t, { taskId: t.tasks[0].id, difficultyId: 'd-hard', date: '2026-02-01', note: 'ok' }, '2026-02-01T12:00:00.000Z')
-    expect(done.logs).toHaveLength(1)
-    const log = done.logs[0]
-    expect(log.taskText).toBe('do it')
-    expect(log.difficultyLabel).toBe('Hard')
-    expect(log.basePoints).toBe(3)
-    expect(log.fatigueMultiplier).toBe(1)
-    expect(log.priorityMultiplier).toBe(1)
-    expect(log.finalScore).toBe(3)
-    expect(log.timestamp).toBe('2026-02-01T12:00:00.000Z')
-    // task left the board + workingOn
-    expect(done.board.find(i => i.taskId === t.tasks[0].id)).toBeUndefined()
-    expect(done.workingOn).toHaveLength(0)
+  test('updateHabit merges fields; null per-day fields reset to the cadence default', () => {
+    const d = createHabit(habitData(), {
+      title: 'Water', frequencyId: DAILY, timesPerDay: 3, timesOfDay: ['morning', 'afternoon', 'evening']
+    }, '2026-02-01T10:00:00.000Z')
+    const id = d.habits[0].id
+    const edited = updateHabit(d, id, { title: 'Hydrate', timesPerDay: null, timesOfDay: null }, '2026-02-01T10:01:00.000Z')
+    const h = edited.habits[0]
+    expect(h.title).toBe('Hydrate')
+    expect(h.timesPerDay).toBeUndefined()
+    expect(h.timesOfDay).toBeUndefined()
+    expect(h.id).toBe(id)
   })
 
-  test('completeTask caps logs at 500 like the desktop', () => {
-    const base = sampleData()
-    base.logs = Array.from({ length: 500 }, (_, i) => ({ id: 'log-' + i }))
-    const t = createTask(base, 'one more', '2026-02-01T10:00:00.000Z')
-    const done = completeTask(t, { taskId: t.tasks[0].id, difficultyId: 'd-easy', date: '2026-02-01', note: '' }, '2026-02-01T12:00:00.000Z')
-    expect(done.logs).toHaveLength(500)
-    expect(done.logs[done.logs.length - 1].taskText).toBe('one more')
-    expect(done.logs[0].id).toBe('log-1') // oldest dropped
+  test('toggleHabitCompletion adds then undoes a slot check-in (desktop TodayView)', () => {
+    let d = createHabit(habitData(), {
+      title: 'Brush', frequencyId: DAILY, timesPerDay: 2, timesOfDay: ['morning', 'evening']
+    }, '2026-02-01T10:00:00.000Z')
+    const id = d.habits[0].id
+
+    const on = toggleHabitCompletion(d, { habitId: id, date: '2026-02-01', slot: 'morning' }, '2026-02-01T08:00:00.000Z')
+    expect(on.completions).toHaveLength(1)
+    expect(on.completions[0].slot).toBe('morning')
+
+    // same slot again → undo removes it
+    const off = toggleHabitCompletion(on, { habitId: id, date: '2026-02-01', slot: 'morning' }, '2026-02-01T08:01:00.000Z')
+    expect(off.completions).toHaveLength(0)
   })
 
-  test('toggleWorkingOn / updateTaskText / deleteTask match desktop behavior', () => {
-    const base = sampleData()
-    const t = createTask(base, 'task', '2026-02-01T10:00:00.000Z')
-    const id = t.tasks[0].id
-    const on = toggleWorkingOn(t, id, '2026-02-01T10:01:00.000Z')
-    expect(on.workingOn).toEqual([id])
-    const off = toggleWorkingOn(on, id, '2026-02-01T10:02:00.000Z')
-    expect(off.workingOn).toEqual([])
-    const edited = updateTaskText(off, id, 'renamed', '2026-02-01T10:03:00.000Z')
-    expect(edited.tasks[0].text).toBe('renamed')
-    const deleted = deleteTask(edited, id, '2026-02-01T10:04:00.000Z')
-    expect(deleted.tasks).toHaveLength(0)
+  test('toggleHabitCompletion anytime flow fills one at a time, then unwinds', () => {
+    let d = createHabit(habitData(), { title: 'Stretch', frequencyId: DAILY, timesPerDay: 3 }, '2026-02-01T10:00:00.000Z')
+    const id = d.habits[0].id
+
+    d = toggleHabitCompletion(d, { habitId: id, date: '2026-02-01', slot: null, count: 3 }, '2026-02-01T10:01:00.000Z')
+    d = toggleHabitCompletion(d, { habitId: id, date: '2026-02-01', slot: null, count: 3 }, '2026-02-01T10:02:00.000Z')
+    expect(d.completions).toHaveLength(2)
+    // 4th tap on a full 3-count row removes the latest again
+    d = toggleHabitCompletion(d, { habitId: id, date: '2026-02-01', slot: null, count: 2 }, '2026-02-01T10:03:00.000Z')
+    expect(d.completions).toHaveLength(1)
+    // other dates never interfere
+    d = toggleHabitCompletion(d, { habitId: id, date: '2026-01-31', slot: null, count: 3 }, '2026-02-01T10:04:00.000Z')
+    expect(d.completions.filter(c => c.date === '2026-01-31')).toHaveLength(1)
+  })
+
+  test('setHabitArchived / deleteHabit match desktop behavior', () => {
+    let d = createHabit(habitData(), { title: 'Read', frequencyId: DAILY }, '2026-02-01T10:00:00.000Z')
+    const id = d.habits[0].id
+    d = toggleHabitCompletion(d, { habitId: id, date: '2026-02-01', slot: null, count: 1 }, '2026-02-01T10:01:00.000Z')
+
+    const archived = setHabitArchived(d, id, true, '2026-02-01T10:02:00.000Z')
+    expect(archived.habits[0].archived).toBe(true)
+
+    const deleted = deleteHabit(archived, id, '2026-02-01T10:03:00.000Z')
+    expect(deleted.habits).toHaveLength(0)
     expect(deleted.board).toHaveLength(0)
-  })
-
-  test('reorderBoard follows the DraggableFlatList order', () => {
-    const base = sampleData()
-    let d = createTask(base, 'a', '2026-02-01T10:00:00.000Z')
-    d = createTask(d, 'b', '2026-02-01T10:00:01.000Z')
-    d = createTask(d, 'c', '2026-02-01T10:00:02.000Z')
-    const ids = d.board.map(i => i.taskId) // [c, b, a]
-    const reordered = reorderBoard(d, [ids[2], ids[0], ids[1]], '2026-02-01T11:00:00.000Z')
-    const textOf = tid => reordered.tasks.find(t => t.id === tid).text
-    expect(reordered.board.map(i => textOf(i.taskId))).toEqual(['a', 'c', 'b'])
-  })
-
-  test('moveItem swaps ±1 like the desktop move buttons', () => {
-    const base = sampleData()
-    let d = createTask(base, 'a', '2026-02-01T10:00:00.000Z')
-    d = createTask(d, 'b', '2026-02-01T10:00:01.000Z')
-    const idA = d.tasks.find(t => t.text === 'a').id
-    const moved = moveItem(d, idA, 'down', '2026-02-01T11:00:00.000Z')
-    const textOf = tid => moved.tasks.find(t => t.id === tid).text
-    expect(moved.board.map(i => textOf(i.taskId))).toEqual(['b', 'a'])
+    expect(deleted.completions).toHaveLength(0) // history goes with it
   })
 
   test('updateSettings merges keys and bumps meta (desktop handleSettingChange)', () => {
-    const base = sampleData()
+    const base = habitData()
     const next = updateSettings(base, { theme: 'dark' }, '2026-02-01T10:00:00.000Z')
     expect(next.settings.theme).toBe('dark')
-    expect(next.settings.fatigueIncrement).toBe(0.10)
     expect(next.meta.updatedAt).toBe('2026-02-01T10:00:00.000Z')
   })
 
-  test('updateMarkerNote trims like desktop handleUpdateMarkerNote', () => {
-    const base = sampleData()
-    const withCat = addMarker(base, 'c-1', '2026-02-01T10:00:00.000Z')
-    const mid = withCat.markers[0].id
-    const noted = updateMarkerNote(withCat, mid, '  focus block  ', '2026-02-01T10:01:00.000Z')
-    expect(noted.markers[0].note).toBe('focus block')
-    const removed = deleteMarker(noted, mid, '2026-02-01T10:02:00.000Z')
-    expect(removed.markers).toHaveLength(0)
-    expect(removed.board).toHaveLength(0)
+  test('frequencyFor resolves by id and falls back to daily for broken refs', () => {
+    const d = habitData()
+    const fixed = { id: 'h1', frequencyId: DAILY }
+    const broken = { id: 'h2', frequencyId: 'no-such' }
+    expect(frequencyFor(d, fixed).key).toBe('daily')
+    expect(frequencyFor(d, broken).key).toBe('daily')
+    expect(frequencyFor({ ...d, frequencies: [] }, broken)).toBe(null)
   })
 })
 
@@ -341,7 +326,7 @@ describe('tracker store', () => {
   test('mutate writes pretty JSON, removes the tmp document', async () => {
     const adapter = createMemoryAdapter()
     const store = await createReadyStore(adapter, sampleData())
-    await store.mutate(d => createTask(d, 'hello', '2026-02-01T10:00:00.000Z'))
+    await store.mutate(d => createHabit(d, { title: 'hello', frequencyId: 'f-daily' }, '2026-02-01T10:00:00.000Z'))
 
     const names = [...adapter._files.keys()].map(fileNameOf)
     // the mobile tmp is a leading-dot name (Android-safe, desktop-distinct)
@@ -350,8 +335,8 @@ describe('tracker store', () => {
     const raw = adapter._files.get(DIR + FILE).content
     expect(raw).toBe(JSON.stringify(JSON.parse(raw), null, 2)) // pretty, 2-space
     const parsed = JSON.parse(raw)
-    expect(parsed.tasks[0].text).toBe('hello')
-    expect(parsed.board[0].taskId).toBe(parsed.tasks[0].id)
+    expect(parsed.habits[0].title).toBe('hello')
+    expect(parsed.board[0].habitId).toBe(parsed.habits[0].id)
   })
 
   test('REBASE: external change between load and mutate is preserved', async () => {
@@ -360,22 +345,23 @@ describe('tracker store', () => {
 
     // desktop writes a new task while the phone holds a stale base
     const desktopData = sampleData()
-    desktopData.tasks.push({ id: 'desktop-task', text: 'from desktop', createdAt: '2026-02-01T09:00:00.000Z', completion: null })
-    desktopData.board.push({ type: 'task', taskId: 'desktop-task' })
+    desktopData.habits = desktopData.habits || []
+    desktopData.habits.push({ id: 'desktop-habit', title: 'from desktop', icon: '⭐', color: '#34d399', frequencyId: 'f-daily', archived: false, order: 0, createdAt: '2026-02-01T09:00:00.000Z' })
+    desktopData.board.push({ type: 'habit', habitId: 'desktop-habit' })
     desktopData.meta.updatedAt = '2026-02-01T09:00:00.000Z'
     adapter._files.set(DIR + FILE, { content: JSON.stringify(desktopData, null, 2), mtime: 99 })
 
     // phone completes ITS task — mutation must land on top of the fresh base
     const result = await store.mutate(d => {
-      // d is the REBASED base: it must contain the desktop task
-      expect(d.tasks.some(t => t.id === 'desktop-task')).toBe(true)
-      return createTask(d, 'from phone', '2026-02-01T10:00:00.000Z')
+      // d is the REBASED base: it must contain the desktop habit
+      expect(d.habits.some(t => t.id === 'desktop-habit')).toBe(true)
+      return createHabit(d, { title: 'from phone', frequencyId: 'f-daily' }, '2026-02-01T10:00:00.000Z')
     })
 
     const raw = JSON.parse(adapter._files.get(DIR + FILE).content)
-    const texts = raw.tasks.map(t => t.text)
-    expect(texts).toContain('from desktop')
-    expect(texts).toContain('from phone')
+    const titles = raw.habits.map(t => t.title)
+    expect(titles).toContain('from desktop')
+    expect(titles).toContain('from phone')
     expect(result.skipped).toBe(false)
   })
 
@@ -388,7 +374,7 @@ describe('tracker store', () => {
     const externalRaw = JSON.stringify(external, null, 2)
     adapter._files.set(DIR + FILE, { content: externalRaw, mtime: 77 })
 
-    await store.mutate(d => createTask(d, 'phone write', '2026-02-01T10:00:00.000Z'))
+    await store.mutate(d => updateSettings(d, { theme: 'dark' }, '2026-02-01T10:00:00.000Z'))
 
     const backupDir = 'app://docs/.backups/'
     const backups = [...adapter._files.keys()].filter(u => u.startsWith(backupDir))
@@ -403,7 +389,7 @@ describe('tracker store', () => {
     adapter._files.set(DIR + FILE, { content: corrupt, mtime: 88 })
 
     await expect(
-      store.mutate(d => createTask(d, 'must not be written', '2026-02-01T10:00:00.000Z'))
+      store.mutate(d => createHabit(d, { title: 'must not be written', frequencyId: 'f-daily' }, '2026-02-01T10:00:00.000Z'))
     ).rejects.toMatchObject({ code: 'CORRUPT_FILE' })
 
     expect(adapter._files.get(DIR + FILE).content).toBe(corrupt)
@@ -421,7 +407,7 @@ describe('tracker store', () => {
     adapter._files.set(DIR + FILE, { content: JSON.stringify(future, null, 2), mtime: 55 })
 
     await expect(
-      store.mutate(d => createTask(d, 'should not land', '2026-02-01T10:00:00.000Z'))
+      store.mutate(d => createHabit(d, { title: 'should not land', frequencyId: 'f-daily' }, '2026-02-01T10:00:00.000Z'))
     ).rejects.toMatchObject({ code: 'SCHEMA_VERSION_TOO_NEW', schemaVersion: 3 })
 
     expect(store.getSnapshot().status).toBe('schema-too-new')

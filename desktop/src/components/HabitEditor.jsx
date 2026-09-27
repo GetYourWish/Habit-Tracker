@@ -6,20 +6,22 @@ import {
   generateId,
   resolveTimesOfDay
 } from '@habit-tracker/core'
+import { EMOJI_CATEGORIES, ALL_EMOJIS, searchEmojis } from './emojiCatalog'
 
 // HabitEditor — create/edit modal. THE headline feature: a habit due more
 // than once a day gets ONE "best time of day" CHOICE PER OCCURRENCE —
 // brushing teeth twice a day = pick Morning for the first, Evening for the
 // second. Any occurrence can also stay "Anytime".
-
-const EMOJIS = [
-  '🪥', '🚿', '💧', '🥤', '🏃', '🚶', '🥾', '🚴', '🏋️', '🧘', '🤸', '⛹️',
-  '😴', '🛏️', '📖', '✍️', '📝', '🗒️', '🌬️', '🧠', '🈺', '🎸', '🎹', '🎨',
-  '🧹', '🍽️', '🧺', '🪴', '🗑️', '🧽', '🍳', '🥗', '🍎', '🥦', '💊', '🩺',
-  '📵', '🌞', '🌙', '⭐', '❤️', '🙏', '🐕', '🐈', '☎️', '💌', '🌱', '🌳',
-  '💰', '📈', '📊', '🎯', '🔍', '💾', '🧴', '🦷', '👂', '🧼', '💪', '🩹',
-  '🛁', '☕', '🍵', '🧦', '🏠', '🚭', '⏰', '🗓️', '🎉', '🏆', '😇', '🤓'
-]
+//
+// 2026-09-27 fixes:
+//  - FREQUENCY CHIPS: the fallback catalogue (systemFrequencies) carries no
+//    ids, so on files without a frequencies array every chip compared
+//    undefined === undefined — ALL picked, none changeable. The list now
+//    always gets stable ids, and a habit created from a synthesized
+//    catalogue also SAVES that catalogue into the file, so the habit's
+//    frequencyId resolves on the next load (healing repairs old files).
+//  - EMOJI PICKER: 350+ icons in categories with keyword search and a
+//    paste-your-own custom slot (user request: "widen the emoji choice").
 
 const COLORS = [
   '#34d399', '#22d3ee', '#38bdf8', '#a78bfa', '#f472b6', '#fb7185',
@@ -43,17 +45,40 @@ const SLOT_OPTIONS = [
   { key: null, label: 'Anytime', icon: '⏰', color: '#94a3b8' }
 ]
 
+// The catalogue the editor works with: the file's own list when it exists,
+// otherwise the system set — and ALWAYS id-bearing (stable synthetic ids for
+// id-less entries) so exactly one chip can ever be "picked".
+function buildFrequencyList(data) {
+  const list = Array.isArray(data.frequencies) && data.frequencies.length
+    ? data.frequencies
+    : systemFrequencies().map(f => ({ ...f, createdAt: '1970-01-01T00:00:00.000Z' }))
+  const seen = new Set()
+  return list
+    .filter(f => f && typeof f === 'object')
+    .map((f, i) => {
+      if (typeof f.id === 'string' && f.id) {
+        if (seen.has(f.id)) return null // duplicate ids would double-pick
+        seen.add(f.id)
+        return f
+      }
+      const id = `freq-${f.key || `custom-${i}`}`
+      if (seen.has(id)) return null
+      seen.add(id)
+      return { ...f, id }
+    })
+    .filter(Boolean)
+}
+
 export default function HabitEditor({ data, onSave, onClose, habit = null, onArchive = null, onDelete = null }) {
   const isEdit = Boolean(habit && habit.id)
 
-  // The frequency catalogue lives in the file; fall back to the system set
-  // when a legacy file ships none.
-  const frequencies = useMemo(() => {
-    const list = Array.isArray(data.frequencies) && data.frequencies.length
-      ? data.frequencies
-      : systemFrequencies()
-    return list
-  }, [data.frequencies])
+  const frequencies = useMemo(
+    () => buildFrequencyList(data),
+    [data]
+  )
+  // When the file shipped no catalogue, persist the synthesized one with the
+  // habit so frequencyId resolves forever after.
+  const mustSaveCatalogue = !(Array.isArray(data.frequencies) && data.frequencies.length)
 
   const freqById = useMemo(() => {
     const map = {}
@@ -165,12 +190,14 @@ export default function HabitEditor({ data, onSave, onClose, habit = null, onArc
       habits = [...(data.habits || []), newHabit]
       board = [...(data.board || []), { type: 'habit', habitId: newHabit.id }]
     }
-    onSave({
+    const payload = {
       ...data,
       habits,
       board,
       meta: { ...(data.meta || {}), updatedAt: nowIso }
-    })
+    }
+    if (mustSaveCatalogue) payload.frequencies = frequencies
+    onSave(payload)
     onClose()
   }
 
@@ -192,23 +219,18 @@ export default function HabitEditor({ data, onSave, onClose, habit = null, onArc
             onClick={() => setEmojiOpen(v => !v)}
             title="Pick an icon"
             aria-label="Pick an icon"
+            aria-expanded={emojiOpen}
           >{icon}</button>
           <div className="modal-title">{isEdit ? 'Edit habit' : 'New habit'}</div>
           <button className="icon-btn" onClick={onClose} title="Close" aria-label="Close">✕</button>
         </div>
 
         {emojiOpen && (
-          <div className="emoji-grid" data-testid="emoji-grid">
-            {EMOJIS.map(e => (
-              <button
-                key={e}
-                type="button"
-                className={`emoji-cell ${e === icon ? 'picked' : ''}`}
-                onClick={() => { setIcon(e); setEmojiOpen(false) }}
-                aria-label={`Icon ${e}`}
-              >{e}</button>
-            ))}
-          </div>
+          <EmojiPicker
+            value={icon}
+            onPick={e => { setIcon(e); setEmojiOpen(false) }}
+            onChange={setIcon}
+          />
         )}
 
         <div className="editor-field">
@@ -258,7 +280,7 @@ export default function HabitEditor({ data, onSave, onClose, habit = null, onArc
 
         <div className="editor-field">
           <label className="editor-label">How often?</label>
-          <div className="chip-row">
+          <div className="chip-row" data-testid="frequency-chips">
             {frequencies.filter(f => f.key !== 'twice-daily').map(f => (
               <button
                 key={f.id}
@@ -272,6 +294,7 @@ export default function HabitEditor({ data, onSave, onClose, habit = null, onArc
                   if (fPerDay > 1) changePerDay(fPerDay)
                 }}
                 title={describeFrequency(f)}
+                aria-pressed={f.id === frequencyId}
               >
                 <span>{f.icon}</span> {f.label}
               </button>
@@ -357,6 +380,84 @@ export default function HabitEditor({ data, onSave, onClose, habit = null, onArc
           )}
           <button className="btn-ghost" onClick={onClose}>Cancel</button>
         </div>
+      </div>
+    </div>
+  )
+}
+
+// EmojiPicker — the widened icon chooser (user request). Category tabs,
+// keyword search and a paste-your-own custom field; picking closes it.
+function EmojiPicker({ value, onPick, onChange }) {
+  const [tab, setTab] = useState('all')
+  const [query, setQuery] = useState('')
+
+  const activeCat = EMOJI_CATEGORIES.find(c => c.key === tab) || null
+  const results = query.trim()
+    ? searchEmojis(query)
+    : activeCat ? activeCat.emojis : ALL_EMOJIS
+
+  const shown = results.slice(0, 240) // keep the panel snappy on huge queries
+
+  return (
+    <div className="emoji-panel" data-testid="emoji-grid">
+      <div className="emoji-panel-tools">
+        <input
+          className="emoji-search"
+          type="search"
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          placeholder="Search icons (brush, run, sleep…)"
+          aria-label="Search icons"
+        />
+        <input
+          className="emoji-custom"
+          type="text"
+          value={value}
+          onChange={e => {
+            // free-form: paste any emoji (or short text) as the icon
+            const next = Array.from(e.target.value).slice(0, 3).join('')
+            onChange(next)
+          }}
+          placeholder="Paste any emoji"
+          aria-label="Custom icon"
+          title="Paste any emoji here to use it"
+        />
+      </div>
+      <div className="emoji-tabs" role="tablist" aria-label="Icon categories">
+        <button
+          type="button"
+          className={`emoji-tab ${!query && tab === 'all' ? 'picked' : ''}`}
+          onClick={() => { setTab('all'); setQuery('') }}
+          aria-selected={!query && tab === 'all'}
+          role="tab"
+        >✳️ All</button>
+        {EMOJI_CATEGORIES.map(c => (
+          <button
+            key={c.key}
+            type="button"
+            className={`emoji-tab ${!query && tab === c.key ? 'picked' : ''}`}
+            onClick={() => { setTab(c.key); setQuery('') }}
+            aria-selected={!query && tab === c.key}
+            role="tab"
+            title={c.label}
+          >{c.icon}</button>
+        ))}
+      </div>
+      <div className="emoji-grid">
+        {shown.map((e, i) => (
+          <button
+            key={`${e}-${i}`}
+            type="button"
+            className={`emoji-cell ${e === value ? 'picked' : ''}`}
+            onClick={() => onPick(e)}
+            aria-label={`Icon ${e}`}
+          >{e}</button>
+        ))}
+        {shown.length === 0 && (
+          <div className="emoji-empty">
+            No match{query ? ` for “${query}”` : ''} — paste any emoji in the field above.
+          </div>
+        )}
       </div>
     </div>
   )

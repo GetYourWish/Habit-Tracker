@@ -35,7 +35,8 @@ const {
   createTrackerStore,
   setCorruptSettleForTests
 } = require('../src/storage/store.js')
-const { createTask, updateSettings } = require('../src/actions.js')
+const { createHabit, updateSettings } = require('../src/actions.js')
+const { validateAndHealData } = require('@habit-tracker/core')
 
 // Settle retries are instant in here — the retry COUNT is what matters.
 setCorruptSettleForTests({ attempts: 2, delayMs: 0 })
@@ -177,7 +178,10 @@ const TARGET = DIR + FILE
 const TMP = DIR + '.habit.tmp.json'
 
 function sampleData() {
-  return {
+  // The healed form of the legacy fixture: frequencies catalogue present, so
+  // a store load is byte-identical and the shorter-write incident shape
+  // ('system' → 'dark' shrinks the JSON) survives the heal.
+  return validateAndHealData({
     schemaVersion: 1,
     meta: { createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' },
     settings: { theme: 'system', weekStartsOn: 1, fatigueIncrement: 0.10, fatigueCap: 3.0 },
@@ -191,7 +195,7 @@ function sampleData() {
     tasks: [],
     workingOn: [],
     logs: []
-  }
+  })
 }
 
 async function createReadyStore(adapter, initialData) {
@@ -237,18 +241,18 @@ describe('non-truncating provider (the every-action-corrupts incident)', () => {
     expect(folderNames(adapter)).toEqual([FILE]) // no tmp, no 'tracker (1).json'
   })
 
-  test('a LONGER task-add write needs no repair and still lands correctly', async () => {
+  test('a LONGER habit-add write needs no repair and still lands correctly', async () => {
     const adapter = createQuirkAdapter({}, { nonTruncating: new Set([TARGET]) })
     const store = await createReadyStore(adapter, sampleData())
 
-    await store.mutate((d, now) => createTask(d, 'Ship the fix', now))
+    await store.mutate((d, now) => createHabit(d, { title: 'Ship the fix', frequencyId: store.getSnapshot().data.frequencies[0].id }, now))
 
     const snap = store.getSnapshot()
     expect(snap.status).toBe('ready')
-    expect(snap.data.tasks).toHaveLength(1)
+    expect(snap.data.habits).toHaveLength(1)
 
     const parsed = JSON.parse(adapter._files.get(TARGET).content)
-    expect(parsed.tasks).toHaveLength(1)
+    expect(parsed.habits).toHaveLength(1)
 
     // growing writes never hit the tail defect → the target was never recreated
     const creates = adapter._ops.filter(([op, name]) => op === 'create' && name === FILE)

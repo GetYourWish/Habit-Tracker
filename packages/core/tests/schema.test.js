@@ -165,3 +165,74 @@ describe('validateAndHealData (time-of-day slot hygiene on completions)', () => 
     expect(healed.habits[0].timesOfDay).toEqual(['morning', 'afternoon', 'night'])
   })
 })
+
+describe('validateAndHealData (frequency catalogue healing — the 2026-09-27 fix)', () => {
+  const FIXED_TS = '2026-08-01T10:00:00.000Z'
+
+  it('seeds the system catalogue into a legacy task-era file (no frequencies key)', () => {
+    const legacy = {
+      schemaVersion: 1,
+      meta: { createdAt: FIXED_TS, updatedAt: FIXED_TS },
+      settings: {},
+      categories: [],
+      markers: [],
+      board: [],
+      tasks: [{ id: 't1', text: 'old era' }],
+      workingOn: []
+    }
+    const healed = validateAndHealData(legacy)
+    expect(Array.isArray(healed.frequencies)).toBe(true)
+    expect(healed.frequencies.length).toBeGreaterThanOrEqual(14)
+    for (const f of healed.frequencies) {
+      expect(typeof f.id).toBe('string')
+      expect(f.id.length).toBeGreaterThan(0)
+    }
+    // ids are unique — no two chips can ever compare undefined === undefined
+    expect(new Set(healed.frequencies.map(f => f.id)).size).toBe(healed.frequencies.length)
+    // idempotent
+    const twice = validateAndHealData(healed)
+    expect(JSON.stringify(twice)).toBe(JSON.stringify(healed))
+  })
+
+  it('gives id-less catalogue entries stable ids (same namespace as the seed)', () => {
+    const file = {
+      schemaVersion: 1,
+      meta: { createdAt: FIXED_TS, updatedAt: FIXED_TS },
+      settings: {},
+      habits: [{ id: 'h1', title: 'Meditate', frequencyId: undefined }],
+      frequencies: [{ key: 'daily', label: 'Every day', kind: 'daily', timesPerPeriod: 1 }],
+      board: [],
+      completions: []
+    }
+    const healed = validateAndHealData(file)
+    const daily = healed.frequencies.find(f => f.key === 'daily')
+    expect(typeof daily.id).toBe('string')
+    // the broken habit gets pointed back at a real cadence (Every day)
+    expect(healed.habits[0].frequencyId).toBe(daily.id)
+  })
+
+  it('points habits with unknown frequencyId at the daily cadence', () => {
+    const file = {
+      schemaVersion: 1,
+      meta: { createdAt: FIXED_TS, updatedAt: FIXED_TS },
+      settings: {},
+      habits: [
+        { id: 'h1', title: 'Orphan', frequencyId: 'no-such-frequency' },
+        { id: 'h2', title: 'Fine', frequencyId: 'f1' }
+      ],
+      frequencies: [{ id: 'f1', key: 'daily', label: 'Every day', kind: 'daily', timesPerPeriod: 1 }],
+      board: [],
+      completions: []
+    }
+    const healed = validateAndHealData(file)
+    const daily = healed.frequencies.find(f => f.key === 'daily')
+    expect(healed.habits[0].frequencyId).toBe(daily.id)
+    expect(healed.habits[1].frequencyId).toBe('f1') // valid references untouched
+  })
+
+  it('keeps a healthy seeded file byte-identical (healFrequencies is a no-op)', () => {
+    const file = createDefaultData()
+    const healed = validateAndHealData(file)
+    expect(JSON.stringify(healed)).toBe(JSON.stringify(file))
+  })
+})

@@ -4,8 +4,9 @@
 // refused, never silently healed downgraded. Missing/non-number is
 // treated as 1 (legacy files).
 
-const { createDefaultData } = require('./defaults')
+const { createDefaultData, stableId } = require('./defaults')
 const { isValidSlotKey } = require('./times')
+const { systemFrequencies } = require('./recurrence')
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
@@ -36,6 +37,70 @@ function str(v, fallback = '') {
 // Normative behavior is documented in SCHEMA.md ("Healing") and locked by
 // the golden fixtures (tests/fixture-contract.cjs). Changes here are a
 // BREAKING change to the drift contract.
+
+// ---- frequencies (the cadence catalogue) ---------------------------------
+// THE 2026-09-27 fix. A habit's editor and Today page resolve
+// habit.frequencyId against data.frequencies. Legacy task-era files ship NO
+// catalogue at all, and the editor's fallback (systemFrequencies()) carries
+// NO ids — every "How often?" chip then compared undefined === undefined,
+// rendered ALL-picked and unchangeable, and habits saved from that state got
+// frequencyId: undefined, which parked them in "resting today" with a dead
+// check button. Healing now guarantees the catalogue exists, is id-bearing
+// and every habit points at a real entry:
+//   1. no frequencies array → seed the system catalogue (stable ids)
+//   2. id-less entries → stableId('freq:' + key) (same ids the defaults seed)
+//   3. missing system cadences → appended (the documented `system: true`
+//      "restored by healing" contract, finally implemented)
+//   4. habits with a missing/unknown frequencyId → pointed at "Every day"
+// All of it idempotent: a healthy file heals byte-identically.
+function healFrequencies(healed) {
+  let list
+  if (Array.isArray(healed.frequencies)) {
+    list = healed.frequencies
+  } else {
+    list = []
+    healed.frequencies = list
+  }
+
+  const byKey = {}
+  for (const f of list) {
+    if (f && typeof f === 'object' && typeof f.key === 'string' && f.key) {
+      byKey[f.key] = f
+    }
+  }
+
+  // 2. every entry must carry an id the editor can point at.
+  for (const f of list) {
+    if (!f || typeof f !== 'object') continue
+    if (typeof f.id === 'string' && f.id) continue
+    f.id = typeof f.key === 'string' && f.key
+      ? stableId(`freq:${f.key}`)
+      : stableId(`freq:custom:${f.label || 'cadence'}:${list.indexOf(f)}`)
+  }
+
+  // 3. restore missing system cadences (skipped when the key is taken).
+  for (const sys of systemFrequencies()) {
+    if (byKey[sys.key]) continue
+    list.push({ ...sys, id: stableId(`freq:${sys.key}`), createdAt: '1970-01-01T00:00:00.000Z' })
+  }
+
+  // 4. habits pointing at nothing (or a deleted cadence) fall back to the
+  // daily id — the same stableId the defaults use, so it matches the entry
+  // seeded by step 3 even on files that had no catalogue at all.
+  if (Array.isArray(healed.habits) && healed.habits.length) {
+    const ids = new Set(
+      list.filter(f => f && typeof f === 'object' && typeof f.id === 'string' && f.id).map(f => f.id)
+    )
+    if (!ids.size) return
+    const dailyId = stableId('freq:daily')
+    const fallback = ids.has(dailyId) ? dailyId : list.find(f => f && f.id).id
+    for (const h of healed.habits) {
+      if (!h || typeof h !== 'object') continue
+      if (!h.frequencyId || !ids.has(h.frequencyId)) h.frequencyId = fallback
+    }
+  }
+}
+
 function validateAndHealData(data) {
   if (!data) {
     return createDefaultData()
@@ -55,6 +120,7 @@ function validateAndHealData(data) {
     healed.meta = { createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
   }
   if (!healed.settings || typeof healed.settings !== 'object') healed.settings = {}
+  healFrequencies(healed)
   if (!Array.isArray(healed.categories)) healed.categories = []
   if (!Array.isArray(healed.board)) healed.board = []
   if (!Array.isArray(healed.difficulties)) healed.difficulties = []

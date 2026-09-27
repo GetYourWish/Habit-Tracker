@@ -65,7 +65,7 @@ export function ErrorScreen({ theme, state, store }) {
             : ''
         Alert.alert('Recovered', successNote + detail)
       }
-      // success → store flips to 'ready' → App shows the board; nothing
+      // success → store flips to 'ready' → App shows the Today screen; nothing
       // else to do here (this screen unmounts)
     } catch (e) {
       setNote((e && e.message) || String(e))

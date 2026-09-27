@@ -6,6 +6,7 @@ import {
   describeFrequency,
   resolveTimesOfDay,
   generateId,
+  systemFrequencies,
   TIME_OF_DAY_SLOTS
 } from '@habit-tracker/core'
 
@@ -13,6 +14,10 @@ import {
 // reorder, archive/restore, delete, plus the group (category) manager.
 
 const GROUP_COLORS = ['#34d399', '#60a5fa', '#a78bfa', '#fbbf24', '#f472b6', '#22d3ee', '#fb7185', '#84cc16']
+
+// Fallback cadence for habits with a broken frequency reference (parity
+// with TodayView — legacy files get working rows everywhere).
+const FALLBACK_FREQUENCY = systemFrequencies().find(f => f.key === 'daily')
 
 export default function HabitsView({ data, onSave, onEditHabit, onAddHabit }) {
   const [confirmDelete, setConfirmDelete] = useState(null)
@@ -142,7 +147,7 @@ export default function HabitsView({ data, onSave, onEditHabit, onAddHabit }) {
   }
 
   const renderHabitRow = (habit, isArchived) => {
-    const frequency = freqById[habit.frequencyId] || null
+    const frequency = freqById[habit.frequencyId] || FALLBACK_FREQUENCY
     const streak = calculateStreak(habit, frequency, completionsByHabit, today, weekStartsOn)
     const best = calculateBestStreak(habit, frequency, completionsByHabit, today, weekStartsOn)
     const slots = resolveTimesOfDay(habit, frequency)

@@ -1,14 +1,13 @@
-// Device-flow regression test — reproduces the remote-reported 2026-09-18
-// sequence on the FULL app tree:
+// device-flow.test.js — full-app flow on the habit model (the successor of
+// the task-era flow): corrupt file → salvage → Today up → create a habit
+// through the real sheet → change theme → Syncthing reload. Everything runs
+// against the real App tree with the real store + a mocked SAF adapter, so
+// the whole pipeline (load → heal → mutate → rebase → write) executes
+// exactly as on device.
 //
-//   boot with a CORRUPT habit.json → recovery screen → "Salvage readable
-//   data" → board → create a task through the real dialog → change the
-//   theme through the real Segmented control → rapid theme taps
-//
-// The user reported that after salvaging, creating a task "crashes" and
-// changing the theme "crashes". This file drives the exact same flows through
-// the mounted tree with a realistic SAF adapter; any uncaught error (which on
-// a release device is a fatal crash via ErrorUtils) fails the test here.
+// The v1.0.8 regression this file was born from still applies: after
+// salvaging, creating data "crashes" — any uncaught error here fails the
+// test the same way it would kill a release build.
 
 import React from 'react'
 import TestRenderer, { act } from 'react-test-renderer'
@@ -50,12 +49,12 @@ jest.mock('react-native-safe-area-context', () => {
 jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock')
 )
-// v1.0.7: no drag library to mock — the board is a plain RN FlatList.
 
 const SAVED_FOLDER =
   'content://com.android.externalstorage.documents/tree/primary%3ASyncthing%2FTracker'
 const mockFolderFiles = new Map()
 const mockAppFiles = new Map() // app-private (backups/corrupt evidence), keyed by full file:// URI
+
 // The adapter mock mirrors the FIXED production adapter contract: appListDir
 // returns FULL URIs (saf.js normalizes Android's bare-name readDirectoryAsync
 // results — the device-parity regression test for that normalization lives in
@@ -105,32 +104,23 @@ jest.mock('../src/storage/saf.js', () => {
   }
 })
 
-// A healthy file that has REAL content (tasks, a category, difficulties) —
-// the user salvaged a real file, and the flows after salvage render real rows.
+// A healthy habit-model file — the flows after salvage render real rows.
 function healthyRaw() {
   return JSON.stringify(
     {
       schemaVersion: 1,
       meta: { createdAt: '2026-09-01T10:00:00.000Z', updatedAt: '2026-09-01T10:00:00.000Z' },
-      settings: { theme: 'system', weekStartsOn: 1, fatigueIncrement: 0.1, fatigueCap: 3.0 },
-      difficulties: [
-        { id: 'd1', label: 'Easy', score: 1, color: '#4ade80', active: true, order: 0 },
-        { id: 'd2', label: 'Medium', score: 2, color: '#fbbf24', active: true, order: 1 },
-        { id: 'd3', label: 'Hard', score: 3, color: '#f87171', active: true, order: 2 }
+      settings: { theme: 'system', weekStartsOn: 1 },
+      frequencies: [
+        { id: 'f-daily', key: 'daily', label: 'Every day', kind: 'daily', timesPerPeriod: 1, icon: '☀️', color: '#34d399' }
       ],
-      categories: [{ id: 'c1', name: 'Deep Work', color: '#8b5cf6', order: 0, active: true, priorityMultiplier: 1 }],
-      markers: [{ id: 'm1', categoryId: 'c1', createdAt: '2026-09-01T10:00:00.000Z', updatedAt: '2026-09-01T10:00:00.000Z' }],
-      board: [{ type: 'marker', markerId: 'm1' }, { type: 'task', taskId: 't1' }],
-      tasks: [
-        {
-          id: 't1',
-          text: 'Existing salvaged task',
-          createdAt: '2026-09-01T10:00:00.000Z',
-          updatedAt: '2026-09-01T10:00:00.000Z',
-          completion: null
-        }
+      categories: [{ id: 'c1', name: 'Morning', color: '#34d399', order: 0, archived: false }],
+      habits: [
+        { id: 'h1', title: 'Existing salvaged habit', icon: '⭐', color: '#fbbf24', frequencyId: 'f-daily', categoryId: 'c1', archived: false, order: 0, createdAt: '2026-09-01T10:00:00.000Z' },
+        { id: 'h2', title: 'Second habit', icon: '💧', color: '#22d3ee', frequencyId: 'f-daily', archived: false, order: 1, createdAt: '2026-09-01T10:00:00.000Z' }
       ],
-      history: [],
+      completions: [],
+      board: [{ type: 'habit', habitId: 'h1' }, { type: 'habit', habitId: 'h2' }],
       logs: []
     },
     null,
@@ -138,9 +128,7 @@ function healthyRaw() {
   )
 }
 
-// Simulate the aftermath of the interleaved-chunk corruption incident: a
-// structurally broken file (two JSON documents interleaved — "unexpected
-// character" on parse).
+// Interleaved-chunk corruption aftermath: "unexpected character" on parse.
 function corruptRaw() {
   const good = healthyRaw()
   return good.slice(0, Math.floor(good.length * 0.55)) + '"s' + good.slice(Math.floor(good.length * 0.5))
@@ -168,7 +156,7 @@ function collectTexts(node, out = []) {
   return out
 }
 
-// global error trap: on a release device ANY uncaught error is a fatal
+// Global error trap: on a release device ANY uncaught error is a fatal
 // crash (ErrorUtils → CrashLogProvider → process death). Fail the test on
 // the same class of problem.
 let uncaught = []
@@ -184,7 +172,7 @@ afterEach(() => {
   uncaught = []
 })
 
-describe('post-salvage device flow (create task / change theme)', () => {
+describe('post-salvage device flow (create habit / change theme)', () => {
   const mountedTrees = []
   afterEach(async () => {
     while (mountedTrees.length) {
@@ -216,10 +204,6 @@ describe('post-salvage device flow (create task / change theme)', () => {
       .includes(needle.toLowerCase())
   }
 
-  // Segmented options are Pressables with accessibilityRole="radio" whose
-  // single child is the label Text. The jest Pressable mock nests instances,
-  // so several test instances carry the same label — take any with a real
-  // onPress.
   function findRadioByLabel(tree, label) {
     const radios = tree.root.findAllByProps({ accessibilityRole: 'radio' })
     const hit = radios.filter(r => {
@@ -231,7 +215,16 @@ describe('post-salvage device flow (create task / change theme)', () => {
     return hit[0]
   }
 
-  test('corrupt file → salvage → create task → change theme, all without crashing', async () => {
+  function findPressableContaining(tree, label) {
+    const hit = tree.root.findAll(n => {
+      if (!n.props || typeof n.props.onPress !== 'function') return false
+      return collectTexts(Array.isArray(n.children) ? n.children : [n.children]).includes(label)
+    })
+    if (hit.length < 1) throw new Error(`no pressable containing "${label}"`)
+    return hit[0]
+  }
+
+  test('corrupt file → salvage → create habit → change theme, all without crashing', async () => {
     await AsyncStorage.setItem('pt.folderUri', SAVED_FOLDER)
     mockFolderFiles.set('habit.json', corruptRaw())
 
@@ -247,29 +240,28 @@ describe('post-salvage device flow (create task / change theme)', () => {
     })
     await flushMicrotasks()
 
-    // board is up with the salvaged task visible
-    expect(findByText(tree, 'Existing salvaged task')).toBe(true)
+    // Today is up with the salvaged habit visible
+    expect(findByText(tree, 'Existing salvaged habit')).toBe(true)
 
-    // 3) create a task through the real FAB + dialog
-    const fab = tree.root.findByProps({ accessibilityLabel: 'Task' })
+    // 3) create a habit through the real FAB + sheet
+    const fab = tree.root.findAllByProps({ accessibilityLabel: 'New habit' })[0]
     await act(async () => {
       fab.props.onPress()
     })
-    const dialogInput = tree.root.findByProps({ placeholder: 'What needs to be done?' })
+    const sheetInput = tree.root.findByProps({ placeholder: 'e.g. Brush teeth' })
     await act(async () => {
-      dialogInput.props.onChangeText('A brand new task')
+      sheetInput.props.onChangeText('A brand new habit')
     })
-    // submit through the Save button of the dialog
-    const saveBtn = tree.root.findAllByProps({ label: 'Save' }).pop()
+    const createBtn = findPressableContaining(tree, 'Create habit')
     await act(async () => {
-      saveBtn.props.onPress()
+      createBtn.props.onPress()
     })
     await flushMicrotasks()
 
-    expect(findByText(tree, 'A brand new task')).toBe(true)
-    // the file on disk parses and contains the new task
+    expect(findByText(tree, 'A brand new habit')).toBe(true)
+    // the file on disk parses and contains the new habit
     const onDisk = JSON.parse(mockFolderFiles.get('habit.json'))
-    expect(onDisk.tasks.some(t => t.text === 'A brand new task')).toBe(true)
+    expect(onDisk.habits.some(h => h.title === 'A brand new habit')).toBe(true)
 
     // 4) change the theme through the real Segmented control (Settings tab)
     const settingsTab = tree.root.findByProps({ accessibilityLabel: 'Settings' })
@@ -285,51 +277,37 @@ describe('post-salvage device flow (create task / change theme)', () => {
     // still mounted, no crash, theme applied (data written back)
     const onDisk2 = JSON.parse(mockFolderFiles.get('habit.json'))
     expect(onDisk2.settings.theme).toBe('dark')
-    expect(onDisk2.tasks.some(t => t.text === 'A brand new task')).toBe(true)
+    expect(onDisk2.habits.some(h => h.title === 'A brand new habit')).toBe(true)
 
     expect(uncaught).toEqual([])
   })
 
-  test('rearrange mode: move a task up, new order persists to disk', async () => {
+  test('reorder: move a habit up on the Habits tab, new order persists to disk', async () => {
     await AsyncStorage.setItem('pt.folderUri', SAVED_FOLDER)
     mockFolderFiles.set('habit.json', healthyRaw())
 
     const tree = await bootApp()
-    expect(findByText(tree, 'Existing salvaged task')).toBe(true)
+    expect(findByText(tree, 'Existing salvaged habit')).toBe(true)
 
-    // enter rearrange mode via the handle on any row
-    const handle = tree.root.findAllByProps({ accessibilityLabel: 'Rearrange items' })[0]
+    const habitsTab = tree.root.findByProps({ accessibilityLabel: 'Habits' })
     await act(async () => {
-      handle.props.onPress()
+      habitsTab.props.onPress()
     })
-    // the task sits BELOW the marker → its ↑ is enabled, the marker's is not.
-    // Press the enabled one (the task's). (The jest Pressable mock nests
-    // instances, so filter for a real onPress too.)
-    const upButtons = tree.root.findAllByProps({ accessibilityLabel: 'Move item up' })
-    const taskUp = upButtons.find(
-      b => typeof b.props.onPress === 'function' && b.props.disabled !== true
-    )
-    expect(taskUp).toBeTruthy()
-    await act(async () => {
-      taskUp.props.onPress()
-    })
-    await flushMicrotasks()
 
-    // exit rearrange mode (every row handle + the banner button carry the
-    // label while rearranging — press the first)
-    const done = tree.root.findAllByProps({ accessibilityLabel: 'Finish rearranging' })[0]
+    // Second habit sits below the first → its ↑ is enabled
+    const upButtons = tree.root.findAllByProps({ accessibilityLabel: 'Move Second habit up' })
+    const up = upButtons.find(b => typeof b.props.onPress === 'function' && b.props.disabled !== true)
+    expect(up).toBeTruthy()
     await act(async () => {
-      done.props.onPress()
+      up.props.onPress()
     })
     await flushMicrotasks()
 
     const onDisk = JSON.parse(mockFolderFiles.get('habit.json'))
-    // marker was index 0, task index 1 → after move-up the task is on top
     expect(onDisk.board).toEqual([
-      { type: 'task', taskId: 't1' },
-      { type: 'marker', markerId: 'm1' }
+      { type: 'habit', habitId: 'h2' },
+      { type: 'habit', habitId: 'h1' }
     ])
-    expect(onDisk.tasks.some(t => t.text === 'Existing salvaged task')).toBe(true)
     expect(uncaught).toEqual([])
   })
 
@@ -375,7 +353,7 @@ describe('post-salvage device flow (create task / change theme)', () => {
     expect(typeof foregroundListener).toBe('function')
 
     const externallyUpdated = JSON.parse(mockFolderFiles.get('habit.json'))
-    externallyUpdated.tasks[0].text = 'Syncthing update while backgrounded'
+    externallyUpdated.habits[0].title = 'Syncthing update while backgrounded'
     mockFolderFiles.set('habit.json', JSON.stringify(externallyUpdated))
 
     await act(async () => {
@@ -398,7 +376,7 @@ describe('post-salvage device flow (create task / change theme)', () => {
       await salvageBtn.props.onPress()
     })
     await flushMicrotasks()
-    expect(findByText(tree, 'Existing salvaged task')).toBe(true)
+    expect(findByText(tree, 'Existing salvaged habit')).toBe(true)
 
     // switch to settings and tap all three theme options in a rapid burst
     const settingsTab = tree.root.findByProps({ accessibilityLabel: 'Settings' })
@@ -418,7 +396,7 @@ describe('post-salvage device flow (create task / change theme)', () => {
 
     const onDisk = JSON.parse(mockFolderFiles.get('habit.json'))
     expect(onDisk.settings.theme).toBe('dark')
-    expect(onDisk.tasks.some(t => t.text === 'Existing salvaged task')).toBe(true)
+    expect(onDisk.habits.some(h => h.title === 'Existing salvaged habit')).toBe(true)
     expect(uncaught).toEqual([])
   })
 })
