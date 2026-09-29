@@ -14,14 +14,15 @@
       "backgroundColor": "#EEF2FF"
     },
     "android": {
-      "package": "com.getyourwish.performancetracker",
+      "package": "com.getyourwish.habittracker",
       "versionCode": 13,
       "edgeToEdgeEnabled": true,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#EEF2FF"
       },
-      "allowBackup": false
+      "allowBackup": false,
+      "icon": "./assets/icon.png"
     },
     "platforms": [
       "android"
