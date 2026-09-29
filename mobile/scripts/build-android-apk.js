@@ -25,7 +25,7 @@ function run(command, args, options) {
     console.error(`[build-android-apk] failed to start ${command}: ${result.error.message}`)
     return 1
   }
-  return result.status === 0 ? 0 : (result.status || 1)
+  return result.status === null ? 1 : result.status
 }
 
 function main() {
