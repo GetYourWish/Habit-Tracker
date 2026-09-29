@@ -18,7 +18,9 @@
     "test:core": "npm run test --workspace @habit-tracker/core",
     "test:core:rn": "npm run test --workspace @habit-tracker/mobile",
     "test:desktop": "npm run test --workspace desktop",
-    "check:core-pin": "node scripts/check-core-pin.cjs"
+    "check:core-pin": "node scripts/check-core-pin.cjs",
+    "android:prebuild": "npm run prebuild --workspace @habit-tracker/mobile",
+    "android:apk": "npm run build:apk --workspace @habit-tracker/mobile"
   },
   "license": "MIT",
   "dependencies": {

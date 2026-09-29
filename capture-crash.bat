@@ -8,7 +8,7 @@ REM  Double-click this file with the phone connected over USB.
 REM  It saves three text files to your Desktop; send them all.
 REM ============================================================
 
-set "PKG=com.getyourwish.performancetracker"
+set "PKG=com.getyourwish.habittracker"
 set "OUT=%USERPROFILE%\Desktop"
 if not exist "%OUT%" set "OUT=%USERPROFILE%"
 
@@ -41,24 +41,24 @@ if errorlevel 1 goto no_device
 echo Capturing... do not close this window.
 echo.
 
-"%ADB%" shell dumpsys package %PKG% > "%OUT%\perf-tracker-package.txt" 2>&1
-"%ADB%" logcat -b crash -d > "%OUT%\perf-tracker-crash.txt" 2>&1
-"%ADB%" logcat -d -t 3000 > "%OUT%\perf-tracker-recent.txt" 2>&1
-"%ADB%" shell getprop ro.product.model > "%OUT%\perf-tracker-device.txt" 2>&1
-"%ADB%" shell getprop ro.build.version.release >> "%OUT%\perf-tracker-device.txt" 2>&1
+"%ADB%" shell dumpsys package %PKG% > "%OUT%\habit-tracker-package.txt" 2>&1
+"%ADB%" logcat -b crash -d > "%OUT%\habit-tracker-crash.txt" 2>&1
+"%ADB%" logcat -d -t 3000 > "%OUT%\habit-tracker-recent.txt" 2>&1
+"%ADB%" shell getprop ro.product.model > "%OUT%\habit-tracker-device.txt" 2>&1
+"%ADB%" shell getprop ro.build.version.release >> "%OUT%\habit-tracker-device.txt" 2>&1
 
 set "SIZE="
-for %%F in ("%OUT%\perf-tracker-crash.txt") do set "SIZE=%%~zF"
+for %%F in ("%OUT%\habit-tracker-crash.txt") do set "SIZE=%%~zF"
 
 echo Done. Files saved to your Desktop:
-echo    perf-tracker-crash.txt    - the crash itself (most important)
-echo    perf-tracker-recent.txt   - what the phone was doing before
-echo    perf-tracker-package.txt  - which app variant is installed
-echo    perf-tracker-device.txt   - phone model and Android version
+echo    habit-tracker-crash.txt    - the crash itself (most important)
+echo    habit-tracker-recent.txt   - what the phone was doing before
+echo    habit-tracker-package.txt  - which app variant is installed
+echo    habit-tracker-device.txt   - phone model and Android version
 echo.
 if "%SIZE%"=="" goto send
 if %SIZE% LEQ 2 (
-  echo NOTE: perf-tracker-crash.txt is EMPTY - no crash was recorded yet.
+  echo NOTE: habit-tracker-crash.txt is EMPTY - no crash was recorded yet.
   echo Open the app now to make it crash, then run this file again.
   echo.
 )

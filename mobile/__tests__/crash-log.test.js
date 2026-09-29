@@ -77,10 +77,10 @@ describe('with-crash-log plugin', () => {
   })
 
   describe('composeProviderKotlin', () => {
-    const source = composeProviderKotlin('com.getyourwish.performancetracker')
+    const source = composeProviderKotlin('com.getyourwish.habittracker')
 
     test('declares the correct package', () => {
-      expect(source).toContain('package com.getyourwish.performancetracker')
+      expect(source).toContain('package com.getyourwish.habittracker')
     })
 
     test('installs an uncaught-exception handler and chains to the previous one', () => {
