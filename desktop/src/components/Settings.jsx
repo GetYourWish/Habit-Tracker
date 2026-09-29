@@ -1,7 +1,7 @@
 import { useState } from 'react'
 
 // Settings — lean habit-app settings: data file, appearance, calendar.
-// (The old performance-tracker settings — difficulties, scoring, dashboard
+// (Retired task-management settings — difficulties, scoring, dashboard
 // cards, marker spacing — were removed with the task model.)
 
 function applyTheme(theme) {

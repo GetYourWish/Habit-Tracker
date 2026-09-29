@@ -240,8 +240,8 @@ function patchAndroidManifest(contents) {
  * applied to app/build.gradle by a LATER default mod. Therefore this value
  * is only a FALLBACK; the authoritative source is config.android.package
  * (see withCrashLog). Verified empirically 2026-09-16: reading build.gradle
- * during the mod pipeline yielded "com.performancetracker" while the final
- * file (and config.android.package) is "com.getyourwish.performancetracker".
+ * during the mod pipeline yielded "com.habittracker" while the final
+ * file (and config.android.package) is "com.getyourwish.habittracker".
  */
 
 function readNamespace(androidRoot) {

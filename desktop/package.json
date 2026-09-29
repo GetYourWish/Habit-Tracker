@@ -1,7 +1,7 @@
 {
   "name": "habit-tracker",
   "version": "1.1.0",
-  "description": "A personal local-first performance tracker",
+  "description": "A personal local-first habit tracker",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
