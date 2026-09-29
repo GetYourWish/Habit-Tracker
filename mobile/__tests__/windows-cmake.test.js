@@ -103,9 +103,9 @@ apply plugin: "com.facebook.react"
 android {
     ndkVersion rootProject.ext.ndkVersion
     compileSdk rootProject.ext.compileSdkVersion
-    namespace 'com.getyourwish.performancetracker'
+    namespace 'com.getyourwish.habittracker'
     defaultConfig {
-        applicationId 'com.getyourwish.performancetracker'
+        applicationId 'com.getyourwish.habittracker'
         versionCode 3
         versionName "1.0.2"
     }
