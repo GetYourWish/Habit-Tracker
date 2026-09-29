@@ -12,7 +12,8 @@
     "prebuild": "node scripts/expo-prebuild-safe.js",
     "clean:native": "node scripts/clean-native.js",
     "bundle:check": "expo export --platform android --output-dir .bundle-check",
-    "test": "jest"
+    "test": "jest",
+    "build:apk": "node scripts/build-android-apk.js"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",

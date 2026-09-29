@@ -16,7 +16,6 @@
     "android": {
       "package": "com.getyourwish.habittracker",
       "versionCode": 13,
-      "edgeToEdgeEnabled": true,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#EEF2FF"
