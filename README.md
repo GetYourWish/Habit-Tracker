@@ -139,6 +139,8 @@ This command first runs Expo prebuild to create `mobile/android`, then runs Grad
 mobile/android/app/build/outputs/apk/release/app-release.apk
 ```
 
+The build also copies it next to the repository root as `HabitTracker-v<version>.apk` (for example `HabitTracker-v1.1.0.apk`) — a clean file name for sharing. The app always installs on the phone under the plain name **Habit Tracker**: debug and release builds share the same launcher label and version string, so nothing ever shows up with "DEBUG" appended. If you build both variants, tell them apart by their folders (`apk/debug/` vs `apk/release/`), not by the name.
+
 If you only need the generated Android project (for example, to open it in Android Studio), run:
 
 ```bash
