@@ -30,12 +30,21 @@
  *      a release APK. (It is still large — unstripped native code — and
  *      slower; release remains the recommended daily build.)
  *
- *   2. `versionNameSuffix "-debug"` on the debug buildType — debug and release
- *      builds are distinguishable in Android Settings ("1.0.2-debug" vs
- *      "1.0.2") and via `adb shell dumpsys package <pkg>`.
+ *   2. NO debug identity changes anymore (revised 2026-10-10 after user
+ *      feedback: "the APK shows as 'Habit Tracker DEBUG'"). The versionName
+ *      suffix ("-debug") and the debug-only launcher-name overlay
+ *      ("... DEBUG") were originally added to tell side-by-side installs
+ *      apart, but they make every debug build look like a broken or
+ *      unofficial app. Since android/app/build.gradle now signs the RELEASE
+ *      variant with the debug keystore (Expo template default) and
+ *      debuggableVariants = [] makes debug APKs standalone, both variants
+ *      behave identically for the user — so both must LOOK identical too:
+ *      same launcher name, same version string. If you ever install both at
+ *      once, tell them apart by the file path (apk/release/ vs apk/debug/),
+ *      not by the launcher label. patchDebugStringsXml/composeDebugAppName
+ *      remain exported for reference/tests only; nothing calls them.
  *
- *   3. A debug-only launcher name ("... DEBUG" via app/src/debug/res/values/
- *      strings.xml) plus verifyStandaloneApk / verifyStandaloneApkDebug
+ *   3. verifyStandaloneApk / verifyStandaloneApkDebug
  *      tasks wired to assembleRelease / assembleDebug: they open each APK as
  *      a zip and assert assets/index.android.bundle is present and >= 1 MB.
  *      Success prints a loud banner with the exact install command; failure
@@ -117,8 +126,9 @@ function composeVariantVerifyBlock({ taskName, assembleTask, apkRelPath, debug }
     'then ' + cleanHint;
   const bannerNote = debug
     ? 'NOTE: debug APKs are large (unstripped native code, all CPU architectures) - that is normal. ' +
-      'For daily use prefer app-release.apk. This install shows as "... DEBUG" on the launcher ' +
-      'and as a version ending in -debug in Android Settings.'
+      'For daily use prefer app-release.apk. Both variants share the same launcher name and ' +
+      'version string on purpose (2026-10-10): tell them apart by the apk/debug vs apk/release ' +
+      'output folder, not by the label.'
     : 'TIP: assembleDebug also bundles the JS these days, but debug APKs are large and unoptimized - ' +
       'prefer this app-release.apk for daily use.';
 
@@ -227,6 +237,10 @@ function escapeXml(s) {
  *   otherwise         -> replace the existing app_name value, or insert one
  *                          before </resources>; anything else is left intact
  * Returns { contents, changed }; changed=false signals "leave the file alone".
+ *
+ * RETIRED (2026-10-10): the plugin no longer creates this overlay — debug
+ * installs must look identical to release ones ("... DEBUG" on the launcher
+ * read as a broken/unofficial build). Kept exported for tests/history only.
  */
 function patchDebugStringsXml(contents, debugAppName) {
   const nameLine = '<string name="app_name">' + escapeXml(debugAppName) + '</string>'
@@ -254,31 +268,29 @@ function patchDebugStringsXml(contents, debugAppName) {
  * Patch the generated android/app/build.gradle. Pure string function.
  * Returns { contents, warnings } so callers and tests can assert exactly what
  * happened.
+ *
+ * NOTE (2026-10-10): this no longer injects `versionNameSuffix "-debug"` into
+ * the debug buildType. The user explicitly asked for debug installs to look
+ * like normal ones ("why does the APK have the app name plus DEBUG?"). Debug
+ * builds are still standalone (debuggableVariants = []), so there is nothing
+ * about them a daily user must see on the launcher or in Android Settings.
  */
 function patchAppBuildGradle(contents) {
   const warnings = [];
   let result = contents;
 
-  // --- 1. versionNameSuffix "-debug" on the debug buildType -----------------
-  if (/versionNameSuffix/.test(result)) {
+  // --- 0. strip any legacy versionNameSuffix "-debug" ------------------------
+  // Injected by older versions of this plugin (and possibly by hand). Remove
+  // it so debug installs show the plain version name, exactly like release.
+  if (/^\s*versionNameSuffix\s+"-debug"\s*$/m.test(result)) {
+    result = result.replace(/^[ \t]*versionNameSuffix[ \t]+"-debug"[ \t]*\r?\n/gm, '');
     console.log(
-      `${TAG} versionNameSuffix already present in app/build.gradle - leaving it untouched`
+      `${TAG} removed the legacy versionNameSuffix "-debug" (debug installs now show the plain version name, like release)`
     );
-  } else {
-    const debugBlockRe = /(buildTypes\s*\{\s*debug\s*\{\r?\n)/;
-    if (debugBlockRe.test(result)) {
-      result = result.replace(
-        debugBlockRe,
-        `$1            versionNameSuffix "-debug"\n`
-      );
-      console.log(
-        `${TAG} injected versionNameSuffix "-debug" into the debug buildType (debug builds now show as "1.0.2-debug" in Android Settings)`
-      );
-    } else {
-      warnings.push(
-        'buildTypes { debug { not found in app/build.gradle - template layout changed upstream; versionNameSuffix NOT injected'
-      );
-    }
+  } else if (/versionNameSuffix/.test(result)) {
+    console.log(
+      `${TAG} a non-debug versionNameSuffix is present in app/build.gradle - leaving it untouched`
+    );
   }
 
   // --- 2. debuggableVariants = [] in the react{} block -----------------------
@@ -380,26 +392,25 @@ function withStandaloneRelease(config) {
         fs.writeFileSync(appGradleFile, contents);
       }
 
-      // --- debug launcher-name overlay (app/src/debug/res/values/strings.xml)
-      const mainStringsFile = path.join(projectRoot, 'android', 'app', 'src', 'main', 'res', 'values', 'strings.xml');
-      let mainName = 'Habit Tracker';
-      if (fs.existsSync(mainStringsFile)) {
-        const mainStrings = fs.readFileSync(mainStringsFile, 'utf8');
-        const m = mainStrings.match(/<string name="app_name">([^<]*)<\/string>/);
-        if (m) mainName = m[1];
-      } else {
-        console.warn(`${TAG} WARNING: ${mainStringsFile} not found - using default app name for the debug overlay`);
-      }
-      const debugStringsDir = path.join(projectRoot, 'android', 'app', 'src', 'debug', 'res', 'values');
-      const debugStringsFile = path.join(debugStringsDir, 'strings.xml');
-      const existing = fs.existsSync(debugStringsFile) ? fs.readFileSync(debugStringsFile, 'utf8') : null;
-      const { contents: debugContents, changed } = patchDebugStringsXml(existing, composeDebugAppName(mainName));
-      if (changed) {
-        fs.mkdirSync(debugStringsDir, { recursive: true });
-        fs.writeFileSync(debugStringsFile, debugContents);
-        console.log(`${TAG} debug launcher name is now "${composeDebugAppName(mainName)}" (${debugStringsFile})`);
-      } else {
-        console.warn(`${TAG} WARNING: could not patch ${debugStringsFile} - template layout changed upstream`);
+      // --- legacy debug launcher-name overlay: REMOVE it ---------------------
+      // Older versions of this plugin wrote app/src/debug/res/values/strings.xml
+      // with <string name="app_name">Habit Tracker DEBUG</string>, so every
+      // debug install showed "…DEBUG" on the launcher. The user asked for the
+      // plain name in every build (2026-10-10): delete the overlay if present.
+      // (prebuild --clean regenerates android/, but a non-clean prebuild or a
+      // hand-kept native folder must still self-heal.)
+      const debugStringsFile = path.join(
+        projectRoot, 'android', 'app', 'src', 'debug', 'res', 'values', 'strings.xml'
+      );
+      if (fs.existsSync(debugStringsFile)) {
+        try {
+          fs.rmSync(debugStringsFile);
+          console.log(
+            `${TAG} removed the legacy "... DEBUG" launcher-name overlay (${debugStringsFile}) - debug installs now show "Habit Tracker" like every other build`
+          );
+        } catch (e) {
+          console.warn(`${TAG} WARNING: could not delete ${debugStringsFile}: ${e.message}`);
+        }
       }
       return config;
     },

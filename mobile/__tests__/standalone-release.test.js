@@ -68,21 +68,35 @@ describe('with-standalone-release plugin', () => {
       patched = patchAppBuildGradle(TEMPLATE_EXCERPT)
     })
 
-    test('injects versionNameSuffix into the DEBUG buildType only', () => {
+    test('does NOT stamp the debug build with a -debug identity (2026-10-10)', () => {
       const { contents } = patched
-      // exactly one suffix, inside the debug block, before the release block
-      const occurrences = contents.split('versionNameSuffix "-debug"').length - 1
-      expect(occurrences).toBe(1)
-
+      // The user asked why debug installs show up as "Habit Tracker DEBUG".
+      // Root cause: this plugin used to inject versionNameSuffix "-debug" and
+      // a debug-only app_name overlay. Both are gone: every install must look
+      // like the real app. The debug buildType keeps its signing config and
+      // nothing else changes there.
+      expect(contents).not.toContain('versionNameSuffix')
       const debugBlock = contents.slice(
         contents.indexOf('buildTypes {'),
         contents.indexOf('release {')
       )
-      expect(debugBlock).toContain('versionNameSuffix "-debug"')
       expect(debugBlock).toContain('signingConfig signingConfigs.debug')
       // the release block itself is untouched
       const releaseBlock = contents.slice(contents.indexOf('release {'))
       expect(releaseBlock).not.toContain('versionNameSuffix')
+    })
+
+    test('strips a legacy versionNameSuffix "-debug" left by older plugin versions', () => {
+      const legacy = TEMPLATE_EXCERPT.replace(
+        'debug {\n            signingConfig',
+        'debug {\n            versionNameSuffix "-debug"\n            signingConfig'
+      )
+      const { contents } = patchAppBuildGradle(legacy)
+      expect(contents).not.toContain('versionNameSuffix')
+      // the surrounding lines survive the removal
+      expect(contents).toContain('debug {\n            signingConfig signingConfigs.debug')
+      // still idempotent
+      expect(patchAppBuildGradle(contents).contents).toBe(contents)
     })
 
     test('appends the verifyStandaloneApk task wired to assembleRelease', () => {
@@ -117,7 +131,7 @@ describe('with-standalone-release plugin', () => {
       const once = patchAppBuildGradle(TEMPLATE_EXCERPT).contents
       const twice = patchAppBuildGradle(once).contents
       expect(twice).toBe(once)
-      expect(twice.split('versionNameSuffix "-debug"').length - 1).toBe(1)
+      expect(twice).not.toContain('versionNameSuffix')
       expect((twice.match(/verifyStandaloneApk/g) || []).length).toBe(
         (once.match(/verifyStandaloneApk/g) || []).length
       )
@@ -159,7 +173,7 @@ tasks.register("verifyStandaloneApk") {
   })
 
   describe('upstream template drift (self-disabling guards)', () => {
-    test('a pre-existing versionNameSuffix is never duplicated', () => {
+    test('a foreign versionNameSuffix is left untouched', () => {
       const modified = TEMPLATE_EXCERPT.replace(
         'debug {\n            signingConfig',
         'debug {\n            versionNameSuffix "-custom"\n            signingConfig'
@@ -248,8 +262,7 @@ tasks.register("verifyStandaloneApk") {
       // The quotes must now appear escaped, in BOTH variant blocks.
       expect(block.match(/red \\"Unable to load script\\"/g) || []).toHaveLength(2)
       expect(block).not.toContain('red "Unable')
-      expect(block.match(/shows as \\"\.\.\. DEBUG\\"/g) || []).toHaveLength(1)
-      expect(block).not.toContain('as "... DEBUG"')
+      expect(block).not.toContain('... DEBUG')
     })
 
     test('groovyEscape neutralizes quotes and backslashes for Groovy literals', () => {
@@ -259,7 +272,7 @@ tasks.register("verifyStandaloneApk") {
     })
   })
 
-  describe('debug launcher-name overlay (patchDebugStringsXml)', () => {
+  describe('retired debug launcher-name overlay (patchDebugStringsXml kept for reference)', () => {
     test('fresh file: composes a minimal overlay with the DEBUG name', () => {
       const { contents, changed } = patchDebugStringsXml(null, 'Habit Tracker DEBUG')
       expect(changed).toBe(true)
