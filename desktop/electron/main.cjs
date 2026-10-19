@@ -301,23 +301,46 @@ ipcMain.handle('save-data', async (event, data) => {
   }
 });
 
+// Choose an existing data file — opens a native OPEN (read) dialog so users
+// can point the app at a JSON file that already exists (e.g. synced from
+// another device via Syncthing). Previously this used showSaveDialog, which
+// only allowed saving/creating a file and never read the picked file back.
 ipcMain.handle('choose-data-location', async () => {
-  const result = await dialog.showSaveDialog(mainWindow, {
-    title: 'Choose Data Location',
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'Choose Data File',
     defaultPath: dataFilePath || path.join(app.getPath('documents'), 'habit.json'),
+    properties: ['openFile'],
     filters: [
       { name: 'JSON Files', extensions: ['json'] },
       { name: 'All Files', extensions: ['*'] }
     ]
   });
 
-  if (!result.canceled && result.filePath) {
-    dataFilePath = result.filePath;
+  if (!result.canceled && result.filePaths.length > 0) {
+    const selectedPath = result.filePaths[0];
+
+    // Validate before committing: reject files that aren't loadable JSON so
+    // the app doesn't silently overwrite a good file with starter defaults.
+    try {
+      const raw = await fs.readFile(selectedPath, 'utf8');
+      const parsed = JSON.parse(raw);
+      assertLoadableSchema(parsed);
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        // Selected file vanished between picking and reading — treat as new.
+      } else if (error.code === 'SCHEMA_VERSION_TOO_NEW') {
+        throw error;
+      } else {
+        throw new Error(`The selected file is not valid habit JSON: ${error.message}`);
+      }
+    }
+
+    dataFilePath = selectedPath;
     await saveDataPath(dataFilePath);
     if (watcherEnabled) await setupWatcher();
     return dataFilePath;
   }
-  
+
   return null;
 });
 
