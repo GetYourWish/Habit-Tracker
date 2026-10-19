@@ -57,9 +57,9 @@ function SetupScreen({ onComplete }) {
         <div className="setup-options">
           <div className="setup-option">
             <button onClick={handleSelectFile} className="option-btn" disabled={isProcessing}>
-              Select habit.json Location
+              Select existing habit.json
             </button>
-            <p>Choose where your data file will be stored</p>
+            <p>Pick a data file that already exists (e.g. synced from another device) — its contents will be loaded. If the file doesn't exist yet, it will be created there.</p>
           </div>
 
           <div className="setup-option">

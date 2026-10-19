@@ -50,7 +50,7 @@ function Settings({ data, onSave, dataFile, conflicts, onBackupNow, onOpenFolder
     setMoveStatus('choosing')
     setError('')
     try {
-      const folderPath = await window.api.chooseDataLocation()
+      const folderPath = await window.api.chooseDataFolder()
       if (folderPath) {
         setPendingFolder(folderPath)
         setMoveStatus('confirming')
