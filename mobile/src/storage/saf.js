@@ -76,7 +76,10 @@ export function withTimeout(op, label, ms = SAF_OP_TIMEOUT_MS) {
 export function fileNameOf(uri) {
   if (!uri) return ''
   const marker = '/document/'
-  const idx = uri.indexOf(marker)
+  // LAST occurrence: a document id may itself contain the literal substring
+  // '/document/' (e.g. 'primary:Sync/document-notes/habit.json'), and
+  // indexOf() would then cut inside the id and return the wrong folder name.
+  const idx = uri.lastIndexOf(marker)
   const raw = idx !== -1 ? uri.substring(idx + marker.length) : uri.substring(uri.lastIndexOf('/') + 1)
   // The id's path separators appear URL-encoded ('%2F') in built URIs and
   // literally ('/') in hand-built ones; the display name is the LAST path

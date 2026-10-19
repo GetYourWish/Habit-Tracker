@@ -265,17 +265,44 @@ export function createTrackerStore({ adapter, dirUri, fileName = 'habit.json' })
     return '.' + state.fileName.replace(/\.json$/, '') + '.tmp.json'
   }
 
+  // Locate the data document in a folder listing.
+  //
+  // PRIMARY match: exact display name ('habit.json'). FALLBACK: the newest
+  // '<base>-conflict-*.json' copy — a Syncthing conflict file is a COMPLETE
+  // JSON document (the sync client copies the whole file, it never splices),
+  // and on several devices the synced-in original arrives with a decorated
+  // name (trailing space/BOM/zero-width junk from the other peer's
+  // filesystem) that no longer matches 'habit.json' exactly. Before this
+  // fallback existed the app could SAVE new files but never OPEN anything
+  // another device had written — it bounced to 'No habit.json in this
+  // folder' forever, which is exactly what broke cross-device syncing.
+  // The conflict-named document is read like any other: schema-gated and
+  // healed before use, never auto-deleted, still listed under conflicts.
+  function pickTargetUri(names) {
+    for (let i = 0; i < names.length; i++) {
+      if (names[i] === state.fileName) return dirListing[i]
+    }
+    const base = state.fileName.replace(/\.json$/i, '')
+    let best = -1
+    let bestName = ''
+    for (let i = 0; i < names.length; i++) {
+      const n = names[i]
+      if (!CONFLICT_PATTERN.test(n) || !/\.json$/i.test(n)) continue
+      if (!n.startsWith(base)) continue
+      // names embed an ISO-ish timestamp → lexicographic max = newest
+      if (n > bestName) {
+        bestName = n
+        best = i
+      }
+    }
+    return best >= 0 ? dirListing[best] : null
+  }
+
   async function listFolder() {
     dirListing = await adapter.listChildren(state.folderUri)
     const names = dirListing.map(u => adapter.fileNameOf(u))
     const conflicts = names.filter(n => CONFLICT_PATTERN.test(n))
-    targetUri = null
-    for (let i = 0; i < dirListing.length; i++) {
-      if (names[i] === state.fileName) {
-        targetUri = dirListing[i]
-        break
-      }
-    }
+    targetUri = pickTargetUri(names)
     return conflicts
   }
 
