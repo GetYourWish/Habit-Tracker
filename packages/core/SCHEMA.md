@@ -152,7 +152,7 @@ writes the defaults in parentheses.
 |---|---|---|---|
 | `theme` | `"system" \| "light" \| "dark"` | `"system"` | UI theme; `system` follows OS preference |
 | `weekStartsOn` | `0 \| 1` | `1` | 0 = Sunday, 1 = Monday; used by week reviews |
-| `heatmapMode` | `"score" \| "count"` | `"score"` | Heatmap cell value: day score vs completed-task count |
+| `heatmapMode` | `"score" \| "count" \| "consistency"` | `"score"` | Legacy task-era field. Nothing in either app reads it anymore; seeded files from `createDefaultData()` carry `"consistency"`, task-era files carry `"score"`/`"count"` — all values are preserved verbatim by healing |
 | `fatigueIncrement` | number | `0.10` | Per-task fatigue step (see Scoring) |
 | `fatigueCap` | number | `3.0` | Upper bound of the fatigue multiplier |
 | `multiSelectModifier` | `"ctrl" \| "shift" \| "alt"` | `"ctrl"` | Modifier used for multi-select on the board |
@@ -328,3 +328,25 @@ Healing is **idempotent** and must be identical on every platform. It:
 - Identical input file ⇒ identical day scores, breakdowns, healed output —
   proven by the dual-runtime fixture tests (Vitest under Node, Jest under
   jest-expo/Hermes).
+
+## Additive rebase (SYNC-DESIGN Option A)
+
+`rebaseSaveOntoFresh(nextData, baseData, freshData)` (core, since 1.1.0) is
+the merge helper whole-file writers use when they discover the file on disk
+changed underneath them (an external write landed inside the change-detection
+latency). It is a three-way, id-based, additive merge — pure and
+platform-agnostic so desktop and Android cannot diverge:
+
+- `completions`: union by id; ids the writer removed relative to its base
+  are removed from the fresh copy too (undo travels).
+- `habits` / `frequencies` / `categories`: writer's objects win on id
+  collision (structure is edited whole-object at a time); entries the
+  writer never saw are added; entries the writer deleted stay deleted.
+- `board`: the writer's board plus fresh habit rows the writer's board lacks.
+- Everything else: writer wins. The output is shaped so healing is a no-op
+  (canonical completion order, no duplicate references).
+
+The Android store implements the same semantics by replaying its queued
+mutations on a freshly re-read base; whole-file writers (desktop) use this
+helper at save time.
+

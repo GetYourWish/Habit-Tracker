@@ -91,6 +91,73 @@
   position: relative;
 }
 
+/* ============ In-app banners (save errors, notices) ============
+   Replaces the blocking alert() dialogs — results and errors surface in the
+   app's own visual language instead of a frozen OS dialog. */
+.app-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  font-size: 0.9rem;
+  border-bottom: 1px solid transparent;
+}
+
+.app-banner .app-banner-body {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.45;
+}
+
+.app-banner .app-banner-hint {
+  display: block;
+  opacity: 0.78;
+  font-size: 0.85rem;
+  margin-top: 2px;
+}
+
+.app-banner.error {
+  background: rgba(244, 63, 94, 0.12);
+  border-bottom-color: rgba(244, 63, 94, 0.45);
+}
+
+.app-banner.success {
+  background: rgba(52, 211, 153, 0.14);
+  border-bottom-color: rgba(52, 211, 153, 0.5);
+}
+
+.app-banner-action {
+  flex-shrink: 0;
+  border: 1px solid currentColor;
+  border-radius: 10px;
+  padding: 6px 12px;
+  font-weight: 700;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.app-banner-action:hover { opacity: 0.8; }
+.app-banner-action.ghost { border-color: transparent; padding: 6px 8px; }
+
+/* Sync-conflict indicator in the nav — amber, sits next to the refresh
+   button, jumps straight to Settings → Data where the copies are listed. */
+.nav-item.nav-conflicts {
+  color: #b45309;
+  font-weight: 800;
+  border: 1.5px solid rgba(245, 158, 11, 0.55);
+  background: rgba(245, 158, 11, 0.14);
+  white-space: nowrap;
+}
+
+.nav-item.nav-conflicts:hover {
+  background: rgba(245, 158, 11, 0.24);
+  color: #92400e;
+}
+
+[data-theme="dark"] .nav-item.nav-conflicts { color: #fbbf24; }
+[data-theme="dark"] .nav-item.nav-conflicts:hover { color: #fde68a; }
+
 .loading-screen {
   display: flex;
   flex-direction: column;

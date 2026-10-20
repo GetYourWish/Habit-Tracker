@@ -233,12 +233,12 @@ export function createTrackerStore({ adapter, dirUri, fileName = 'habit.json' })
   let targetUri = null // resolved child document uri (null when missing)
   let knownRaw = null // raw string we believe is on disk (load or last write)
   let healedCompact = null // compact JSON of the healed data we hold
-  let lastStat = null // { exists, size, modificationTime }
   let busy = false // write token held → polling skips
   let dirListing = [] // last child URIs (conflict detection)
   let loadSeq = 0 // generation guard: only the newest load may repaint state
   let lastBackupRaw = null // on-disk raw already sitting in .backups (dedupe)
   let lastCorrupt = null // { raw, name } — damaged bytes already preserved
+  let pollFailures = 0 // consecutive failed polls (two-strike no-folder rule)
 
   function notify(next) {
     // Immutably replace the snapshot — mutating in place made every store
@@ -450,9 +450,10 @@ export function createTrackerStore({ adapter, dirUri, fileName = 'habit.json' })
     if (!quiet) notifyIfCurrent({ status: 'loading', errorMessage: null })
     try {
       const conflicts = await listFolder()
-      lastStat = targetUri ? await adapter.statDocument(targetUri) : null
 
       if (!targetUri) {
+        knownRaw = null
+        healedCompact = null
         notifyIfCurrent({ status: 'missing', data: null, conflicts, lastMissingAt: Date.now() })
         return state
       }
@@ -476,6 +477,11 @@ export function createTrackerStore({ adapter, dirUri, fileName = 'habit.json' })
 
       const gateErr = gateOrThrow(parse.value)
       if (gateErr) {
+        // Remember the refused bytes: the external-change poll compares
+        // content, and without this the poll would re-read and re-refuse
+        // the same file every 15 s. A CHANGED file (raw !== knownRaw) still
+        // re-evaluates and can lift the refusal — identical files don't.
+        knownRaw = currentRaw
         notifyIfCurrent({
           status: 'schema-too-new',
           data: null,
@@ -488,6 +494,7 @@ export function createTrackerStore({ adapter, dirUri, fileName = 'habit.json' })
       const healed = validateAndHealData(parse.value)
       knownRaw = currentRaw
       healedCompact = compactOf(healed)
+      pollFailures = 0
       notifyIfCurrent({
         status: 'ready',
         data: healed,
@@ -531,32 +538,71 @@ export function createTrackerStore({ adapter, dirUri, fileName = 'habit.json' })
     }
   }
 
-  // External-change poll: cheap stat first; reload only when changed.
-  // `force` bypasses the stat comparison (pull-to-refresh). Runs under a
-  // READ token; the reload reuses the SAME token (no nested acquisition).
+  // External-change poll: the CONTENT IS THE TRUTH (SYNC-DESIGN). The old
+  // implementation compared SAF stats only, but document providers report
+  // second-granular modificationTime and a rewritten file can keep the same
+  // size — an external change that slips past the stat check stays invisible
+  // until the NEXT change. So the poll reads the raw bytes and compares
+  // against the last raw known to be on disk: identical → nothing happened;
+  // different → quiet reload (which re-runs the settle guard for mid-sync
+  // reads). `force` bypasses the comparison (pull-to-refresh).
+  //
+  // TRANSIENT-FAILURE TOLERANCE: a single failed poll (provider hiccup,
+  // momentary rotation) must NOT bounce the user to the re-grant screen —
+  // only a SECOND consecutive failure is treated as a lost permission.
+  // The load watchdog inside runLoad still catches hangs immediately.
   async function checkExternal(force = false) {
     if (busy) return false
     if (!state.folderUri) return false
-    if (state.status !== 'ready' && state.status !== 'missing' && !force) return false
+    // 'schema-too-new' is polled too: a refused file whose content CHANGES
+    // (the other device downgraded or replaced it) is re-evaluated, while
+    // unchanged bytes are skipped via the knownRaw compare below.
+    if (state.status !== 'ready' && state.status !== 'missing' && state.status !== 'schema-too-new' && !force) {
+      return false
+    }
     const token = await lock.read()
     try {
       const conflicts = await listFolder()
-      const stat = targetUri ? await adapter.statDocument(targetUri) : null
-
-      const sameStat =
-        lastStat && stat
-          ? lastStat.size === stat.size && lastStat.modificationTime === stat.modificationTime
-          : lastStat === stat // both null, or one side vanished
-
       notifyConflictsIfChanged(conflicts)
-      if (!force && sameStat && state.status !== 'schema-too-new') return false
+
+      let raw = null
+      let readFailed = false
+      if (targetUri) {
+        try {
+          raw = await adapter.readDocument(targetUri)
+        } catch (e) {
+          raw = null
+          readFailed = true
+        }
+      }
+
+      const unchanged =
+        raw !== null ? raw === knownRaw
+          : knownRaw === null // no target and nothing known → still missing
+
+      if (unchanged) {
+        pollFailures = 0
+        if (!force) return false
+      }
+      if (readFailed && !force) {
+        pollFailures++
+        if (pollFailures >= 2 && state.status === 'ready') {
+          notify({ status: 'no-folder', errorMessage: 'Reading habit.json failed repeatedly. This usually means Android no longer honors the saved folder permission. Pick the folder again — your data was not modified.' })
+        }
+        return false
+      }
       // quiet: the user is looking at a working board — an external change
       // (Syncthing landed a desktop edit) repaints in place, no loading flash
       await runLoad(++loadSeq, { quiet: true })
       return true
     } catch (e) {
-      // permission lost while backgrounded — surface setup screen
-      notify({ status: 'no-folder', errorMessage: e.message })
+      pollFailures++
+      // permission lost while backgrounded — surface setup screen only on
+      // the second consecutive failure (a single transient provider error
+      // used to kick users out of a perfectly good board)
+      if (pollFailures >= 2 && state.status === 'ready') {
+        notify({ status: 'no-folder', errorMessage: e.message })
+      }
       return false
     } finally {
       lock.release(token)
@@ -595,6 +641,30 @@ export function createTrackerStore({ adapter, dirUri, fileName = 'habit.json' })
 
     // refresh the directory listing (the target may have appeared/vanished)
     await listFolder()
+
+    // CANONICAL-NAME REDIRECT (cross-device sync fix): when the folder had
+    // no habit.json, the loader adopted the newest conflict-named copy as
+    // its READ target (decorated-name rescue). But WRITING must never
+    // persist into a conflict document — Syncthing conflict copies are
+    // never synced back as habit.json, so the desktop would never see the
+    // change and the two devices would silently diverge. Redirect writes
+    // to a real habit.json document: adopt one that appeared meanwhile,
+    // otherwise create it. The conflict copy stays untouched for the
+    // conflict UI.
+    if (targetUri && adapter.fileNameOf(targetUri) !== state.fileName) {
+      const canonicalUri = dirListing.find(u => adapter.fileNameOf(u) === state.fileName)
+      if (canonicalUri) {
+        targetUri = canonicalUri
+      } else {
+        const created = await adapter.createDocument(state.folderUri, state.fileName)
+        if (adapter.fileNameOf(created) !== state.fileName) {
+          // SAF deduped the display name — habit.json appeared mid-save.
+          await adapter.removeDocument(created).catch(() => {})
+          throw new Error('habit.json appeared in the folder mid-save — nothing was overwritten; try again')
+        }
+        targetUri = created
+      }
+    }
 
     // 1) tmp document in the SAME directory, verified byte-for-byte.
     //
@@ -669,7 +739,6 @@ export function createTrackerStore({ adapter, dirUri, fileName = 'habit.json' })
 
     knownRaw = pretty
     healedCompact = nextCompact
-    lastStat = await adapter.statDocument(targetUri)
     return { skipped: false }
   }
 
@@ -683,24 +752,49 @@ export function createTrackerStore({ adapter, dirUri, fileName = 'habit.json' })
     if (!state.folderUri || state.status === 'schema-too-new') {
       throw new Error('Cannot save: no writable data file loaded')
     }
+    // Mutations are also refused from the 'missing' and corrupt ('error')
+    // states: state.data is null there, so the rebase would fall through to
+    // createDefaultData() and a single tap could overwrite a damaged or
+    // mid-sync folder with a fresh starter document. initializeDefault() is
+    // the ONE sanctioned writer for the 'missing' state; recovery owns
+    // 'error'.
+    if (state.status === 'missing' || state.status === 'error') {
+      const err = new Error(
+        state.status === 'error'
+          ? 'Cannot save: habit.json is damaged. Resolve recovery first — nothing was written.'
+          : 'Cannot save: habit.json is not in the folder. Create it from the missing-file screen first.'
+      )
+      err.code = 'NOT_READY'
+      throw err
+    }
     // invalidate in-flight loads: a zombie load released by the watchdog
     // must never repaint over this batch's result
     ++loadSeq
 
     // REBASE: always mutate on top of the newest on-disk content.
+    // READ-TARGET RESOLUTION: when the load adopted a conflict-named copy
+    // (no habit.json at the time), a canonical habit.json that has since
+    // APPEARED is newer than our fallback base — rebase onto ITS content,
+    // or the write below would redirect into it while carrying the stale
+    // fallback data and clobber what Syncthing just delivered.
+    let readUri = targetUri
+    if (targetUri && adapter.fileNameOf(targetUri) !== state.fileName) {
+      await listFolder()
+      readUri = dirListing.find(u => adapter.fileNameOf(u) === state.fileName) || targetUri
+    }
     let base
     let freshRaw = null
     try {
-      freshRaw = targetUri ? await adapter.readDocument(targetUri) : null
+      freshRaw = readUri ? await adapter.readDocument(readUri) : null
     } catch (e) {
       freshRaw = null // file vanished — write will recreate it
     }
     if (freshRaw != null && freshRaw !== knownRaw) {
       let parse = tryParseRaw(freshRaw)
-      if (!parse.ok && targetUri) {
+      if (!parse.ok && readUri) {
         // transient mid-sync damage (Syncthing writing blocks into the
         // destination) must not kill a legitimate mutation — settle first
-        const settled = await readSettled(targetUri)
+        const settled = await readSettled(readUri)
         freshRaw = settled.raw
         parse = settled.parse
       }

@@ -344,13 +344,24 @@ function calculateStreak(habit, frequency, completionsByHabit, today, weekStarts
   }
 
   if (frequency.kind === 'every-n') {
-    // consecutive scheduled days done, walking back; non-due days skipped
+    // consecutive scheduled days done, walking back; non-due days skipped.
+    // graceDays applies here exactly as for daily/weekdays: a missed due day
+    // is tolerated up to `grace` times before the streak breaks (the
+    // shipped 'Every other day' cadence declares graceDays: 1 — before this
+    // branch ignored it and broke on the very first miss).
+    let misses = 0
     let streak = 0
     let cursor = today
     for (let guard = 0; guard < 3660; guard++) {
       if (isScheduledOn(frequency, cursor, weekStartsOn)) {
-        if (daySatisfied(cursor)) streak++
-        else if (cursor !== today) break
+        if (daySatisfied(cursor)) {
+          streak++
+        } else if (cursor === today) {
+          // today pending — does not break the streak
+        } else {
+          misses++
+          if (misses > grace) break
+        }
       }
       cursor = addDays(cursor, -1)
       if (diffDays(today, cursor) > 730) break
@@ -368,7 +379,6 @@ function calculateStreak(habit, frequency, completionsByHabit, today, weekStarts
   const goal = Math.max(1, Number(frequency.timesPerPeriod) || 1) * perDay
   let streak = 0
   let cursor = today
-  const step = frequency.kind === 'weekly' ? 7 : frequency.kind === 'every-n-weeks' ? 7 * Math.max(1, Number(frequency.interval) || 1) : frequency.kind === 'yearly' ? 365 : 28
   const currentPk = periodKey(frequency, today, weekStartsOn)
   for (let i = 0; i < 120; i++) {
     const k = periodKey(frequency, cursor, weekStartsOn)
@@ -379,7 +389,26 @@ function calculateStreak(habit, frequency, completionsByHabit, today, weekStarts
     } else {
       break
     }
-    cursor = addDays(cursor, -step)
+    // Step to the last day of the PREVIOUS period. A fixed day-count step
+    // (28 days for months, 365 for years) is wrong: months are 28–31 days,
+    // so stepping 28 days from Mar 31 lands on Mar 3 — the SAME month is
+    // visited twice (a satisfied month counted double) and months can be
+    // skipped entirely; a 365-day step across a leap year lands on Jan 1
+    // of the same leap year. Stepping via period boundaries visits every
+    // period exactly once: weekly -7 days, every-n-weeks -7n days,
+    // monthly → last day of the previous month, yearly → Dec 31 of the
+    // previous year.
+    if (frequency.kind === 'monthly') {
+      cursor = addDays(startOfMonth(cursor), -1)
+    } else if (frequency.kind === 'yearly') {
+      // periodKey for yearly is the CALENDAR year (slice(0,4)), so step to
+      // Dec 31 of the previous calendar year — NOT the ISO week year.
+      cursor = addDays(`${cursor.slice(0, 4)}-01-01`, -1)
+    } else if (frequency.kind === 'weekly') {
+      cursor = addDays(cursor, -7)
+    } else {
+      cursor = addDays(cursor, -7 * Math.max(1, Number(frequency.interval) || 1))
+    }
   }
   return streak
 }

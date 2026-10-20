@@ -20,8 +20,16 @@ function todayYmd() {
 
 function makeData() {
   const data = createDefaultData()
-  // Deterministic today, no seeded history for today itself (skip chance).
-  return data
+  // Deterministic EVERY day: the starter board seeds a little history for
+  // today itself with a per-date pseudo-random skip, so on ~2/3 of real
+  // dates the morning brushing was already seeded as done and the
+  // "unchecked → click → checked" assertions flipped. Strip today's seeded
+  // check-ins — the seeded past stays realistic, today starts clean.
+  const today = todayYmd()
+  return {
+    ...data,
+    completions: data.completions.filter(c => c.date !== today)
+  }
 }
 
 describe('TodayView (main page)', () => {

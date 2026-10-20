@@ -1,6 +1,6 @@
 {
   "name": "@habit-tracker/core",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Shared business logic for Habit Tracker — scoring, schema validation/healing, dates, defaults. Pure JS: no Node builtins, no Electron, no React. The single source of truth for every rule the desktop and Android apps must agree on.",
   "license": "MIT",
   "main": "index.js",

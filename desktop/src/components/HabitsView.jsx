@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   indexCompletions,
   calculateStreak,
@@ -9,6 +9,7 @@ import {
   systemFrequencies,
   TIME_OF_DAY_SLOTS
 } from '@habit-tracker/core'
+import { useToday } from '../hooks/useToday'
 
 // HabitsView — the management page: every habit grouped by its group chip,
 // reorder, archive/restore, delete, plus the group (category) manager.
@@ -21,8 +22,23 @@ const FALLBACK_FREQUENCY = systemFrequencies().find(f => f.key === 'daily')
 
 export default function HabitsView({ data, onSave, onEditHabit, onAddHabit }) {
   const [confirmDelete, setConfirmDelete] = useState(null)
+  const [confirmGroupDelete, setConfirmGroupDelete] = useState(null)
   const [showArchived, setShowArchived] = useState(false)
   const [groupForm, setGroupForm] = useState({ open: false, mode: 'create', id: null, name: '', color: GROUP_COLORS[0] })
+
+  // Escape closes whichever confirmation dialog is open (desktop keyboard
+  // affordance — mobile gets the same via the hardware back button).
+  useEffect(() => {
+    if (!confirmDelete && !confirmGroupDelete) return undefined
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        setConfirmDelete(null)
+        setConfirmGroupDelete(null)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [confirmDelete, confirmGroupDelete])
 
   const freqById = useMemo(() => {
     const map = {}
@@ -35,7 +51,11 @@ export default function HabitsView({ data, onSave, onEditHabit, onAddHabit }) {
     [data.completions]
   )
 
-  const today = new Date().toISOString().slice(0, 10)
+  // LOCAL calendar date — the same convention completions are stored under
+  // (SCHEMA.md: "completing device's local calendar"). useToday keeps the
+  // streaks anchored to the true local day even across midnight while the
+  // app stays open.
+  const today = useToday()
   const weekStartsOn = (data.settings && data.settings.weekStartsOn) ?? 1
 
   // Display order follows the board's habit entries (fallback: habits order)
@@ -144,6 +164,7 @@ export default function HabitsView({ data, onSave, onEditHabit, onAddHabit }) {
       categories: (data.categories || []).filter(c => c.id !== cat.id),
       habits: (data.habits || []).map(h => (h.categoryId === cat.id ? { ...h, categoryId: null } : h))
     }))
+    setConfirmGroupDelete(null)
   }
 
   const renderHabitRow = (habit, isArchived) => {
@@ -237,7 +258,13 @@ export default function HabitsView({ data, onSave, onEditHabit, onAddHabit }) {
               <span className="dot" style={{ background: c.color }} />
               {c.name}
               <button className="icon-btn" style={{ width: 22, height: 22, fontSize: '0.8rem' }} title="Rename" onClick={() => setGroupForm({ open: true, mode: 'edit', id: c.id, name: c.name, color: c.color })} aria-label={`Rename ${c.name}`}>✏️</button>
-              <button className="icon-btn" style={{ width: 22, height: 22, fontSize: '0.8rem' }} title="Delete group" onClick={() => deleteGroup(c)} aria-label={`Delete ${c.name}`}>✕</button>
+              <button
+                className="icon-btn"
+                style={{ width: 22, height: 22, fontSize: '0.8rem' }}
+                title="Delete group (its habits are kept)"
+                onClick={() => setConfirmGroupDelete(c)}
+                aria-label={`Delete group ${c.name}`}
+              >✕</button>
             </span>
           ))}
           <button className="btn-ghost" onClick={() => setGroupForm({ open: true, mode: 'create', id: null, name: '', color: GROUP_COLORS[0] })}>＋ New group</button>
@@ -281,6 +308,25 @@ export default function HabitsView({ data, onSave, onEditHabit, onAddHabit }) {
               <button className="btn-danger" onClick={() => deleteHabit(confirmDelete)}>Delete forever</button>
               <div className="spacer" />
               <button className="btn-ghost" onClick={() => setConfirmDelete(null)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmGroupDelete && (
+        <div className="modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) setConfirmGroupDelete(null) }}>
+          <div className="modal-card confirm-card">
+            <div className="modal-head">
+              <div className="modal-title">Delete group “{confirmGroupDelete.name}”?</div>
+            </div>
+            <p>
+              The group is removed permanently. <strong>No habits are deleted</strong> —
+              they stay on the list under “No group” with their history and streaks intact.
+            </p>
+            <div className="modal-actions">
+              <button className="btn-danger" onClick={() => deleteGroup(confirmGroupDelete)}>Delete group</button>
+              <div className="spacer" />
+              <button className="btn-ghost" onClick={() => setConfirmGroupDelete(null)}>Cancel</button>
             </div>
           </div>
         </div>

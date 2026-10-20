@@ -1,6 +1,10 @@
 # Sync & Storage Design — habit.json across Desktop and Android
 
-**Status: PROPOSAL — awaiting user approval before Phase 9 (mobile app).**
+**Status: Option A IMPLEMENTED on both platforms (core 1.1.0).** The
+additive rebase lives in `@habit-tracker/core` as `rebaseSaveOntoFresh`
+(used by the desktop's whole-file saves) and as the Android store's
+mutation-replay rebase (mobile/src/storage/store.js). Conflict-copy
+surfacing from Option C ships as the backstop on both platforms.
 Scope: how the Electron desktop app (chokidar watcher, direct filesystem)
 and the Android app (Expo, Storage Access Framework, no filesystem watcher)
 cooperate on ONE `habit.json` shared via Syncthing.

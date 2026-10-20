@@ -250,6 +250,9 @@ export function HabitSheet({ theme, visible, data, store, habit, onClose, onArch
     return initialPerDay > 1 ? suggestSlots(initialPerDay) : [null]
   })
   const [emojiOpen, setEmojiOpen] = useState(false)
+  // A failed save keeps the sheet OPEN (the .then(onClose) only runs on
+  // success) — but until now it failed silently, looking like a dead button.
+  const [saveError, setSaveError] = useState(null)
 
   // reset local state whenever a different habit opens
   const [openId, setOpenId] = useState(isEdit ? initial.id : '__new__')
@@ -270,6 +273,7 @@ export function HabitSheet({ theme, visible, data, store, habit, onClose, onArch
         })()
       : (initialPerDay > 1 ? suggestSlots(initialPerDay) : [null]))
     setEmojiOpen(false)
+    setSaveError(null)
   }
 
   const frequency = freqById[frequencyId] || null
@@ -315,7 +319,12 @@ export function HabitSheet({ theme, visible, data, store, habit, onClose, onArch
       color,
       categoryId: categoryId || null,
       frequencyId: frequency.id,
-      archived: false
+      // Preserve the archived state on edit: saving an edit to an ARCHIVED
+      // habit used to silently resurrect it onto the Today screen (the
+      // editor writes archived:false unconditionally). Restoring is the
+      // explicit Archive/Restore button's job, not a side effect of fixing
+      // a typo. Desktop HabitEditor parity.
+      archived: isEdit ? Boolean(habit.archived) : false
     }
     fields.timesPerDay = perDay !== freqDefaultPerDay ? perDay : null
     fields.timesOfDay = timesOfDay
@@ -328,7 +337,10 @@ export function HabitSheet({ theme, visible, data, store, habit, onClose, onArch
         next = { ...next, frequencies: frequencies }
       }
       return next
-    }).then(onClose).catch(() => {})
+    }).then(onClose).catch(e => {
+      // Sheet stays open; tell the user the save did not land.
+      setSaveError((e && e.message) || 'Could not save — the write failed. Try again.')
+    })
   }
 
   const previewCadence = describeFrequency(
@@ -595,6 +607,16 @@ export function HabitSheet({ theme, visible, data, store, habit, onClose, onArch
             </View>
 
             {/* actions */}
+            {saveError ? (
+              <Text style={{ color: theme.danger, ...TYPE.caption, marginTop: SPACING.md }}>
+                {saveError}
+              </Text>
+            ) : null}
+            {!canSave ? (
+              <Text style={{ color: theme.textMuted, ...TYPE.caption, marginTop: SPACING.md }}>
+                Give the habit a name to save it.
+              </Text>
+            ) : null}
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm, marginTop: SPACING.lg }}>
               <FilledButton theme={theme} label={isEdit ? 'Save changes' : 'Create habit'} onPress={handleSave} disabled={!canSave} />
               {isEdit && onArchive ? (

@@ -11,6 +11,7 @@ import {
   calculateBestStreak,
   describeFrequency,
   resolveTimesOfDay,
+  getCurrentDate,
   systemFrequencies,
   TIME_OF_DAY_SLOTS
 } from '@habit-tracker/core'
@@ -24,7 +25,7 @@ import {
 } from '../actions.js'
 import { frequencyFor } from '../actions.js'
 import { SPACING, TYPE, HABIT_ACCENTS } from '../theme.js'
-import { GlassCard, Fab, TopAppBar, IconBtn, Dialog, TextButton, FilledButton } from './ui.js'
+import { GlassCard, Fab, TopAppBar, IconBtn, Dialog, TextButton, FilledButton, Snackbar } from './ui.js'
 
 const GROUP_COLORS = ['#34d399', '#60a5fa', '#a78bfa', '#fbbf24', '#f472b6', '#22d3ee', '#fb7185', '#84cc16']
 const FALLBACK_FREQUENCY = systemFrequencies().find(f => f.key === 'daily')
@@ -46,13 +47,23 @@ function slotsSummary(habit, frequency) {
 export function HabitsScreen({ theme, state, store, onAddHabit, onEditHabit }) {
   const data = state.data
   const [showArchived, setShowArchived] = useState(false)
-  const [groupForm, setGroupForm] = useState(null) // {mode:'create'|'rename', id, name, color}
+  // {mode:'create'|'rename', id, name, color, archived} — `archived` rides
+  // along so the dialog can offer Unarchive for already-archived groups
+  // (previously a one-way door: once archived, nothing in the app could
+  // ever bring a group back).
+  const [groupForm, setGroupForm] = useState(null)
+  // Failed writes (move/archive/delete) must not be silent taps.
+  const [snack, setSnack] = useState('')
 
   const completionsByHabit = useMemo(
     () => indexCompletions(data.completions || []),
     [data.completions]
   )
-  const today = new Date().toISOString().slice(0, 10)
+  // LOCAL calendar date (SCHEMA.md: completions are stored under the
+  // device-local date). A UTC-derived "today" anchors streaks to the wrong
+  // day for users outside UTC — a check-in from this evening would not count
+  // for today even though the Today screen recorded it locally.
+  const today = getCurrentDate()
   const weekStartsOn = (data.settings && data.settings.weekStartsOn) ?? 1
 
   // Display order follows the board's habit entries (fallback: habits order)
@@ -109,7 +120,7 @@ export function HabitsScreen({ theme, state, store, onAddHabit, onEditHabit }) {
       board[habitRows[at].i] = b
       board[habitRows[swapWith].i] = a
       return { ...d, board, meta: { ...(d.meta || {}), updatedAt: now } }
-    }).catch(() => {})
+    }).catch(() => setSnack('Could not save the new order — try again.'))
   }
 
   const confirmDelete = (habit) => {
@@ -121,7 +132,7 @@ export function HabitsScreen({ theme, state, store, onAddHabit, onEditHabit }) {
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: () => store.mutate((d, now) => deleteHabit(d, habit.id, now)).catch(() => {})
+          onPress: () => store.mutate((d, now) => deleteHabit(d, habit.id, now)).catch(() => setSnack('Could not delete — try again.'))
         }
       ]
     )
@@ -179,7 +190,7 @@ export function HabitsScreen({ theme, state, store, onAddHabit, onEditHabit }) {
           <IconBtn
             name={isArchived ? 'restore' : 'archive-outline'}
             color={theme.textSecondary}
-            onPress={() => store.mutate((d, now) => setHabitArchived(d, habit.id, !isArchived, now)).catch(() => {})}
+            onPress={() => store.mutate((d, now) => setHabitArchived(d, habit.id, !isArchived, now)).catch(() => setSnack('Could not save — try again.'))}
             accessibilityLabel={isArchived ? `Restore ${habit.title}` : `Archive ${habit.title}`}
           />
           <IconBtn
@@ -238,7 +249,7 @@ export function HabitsScreen({ theme, state, store, onAddHabit, onEditHabit }) {
                     name="pencil-outline"
                     color={theme.textSecondary}
                     size={15}
-                    onPress={() => setGroupForm({ mode: 'rename', id: group.id, name: group.name, color: group.color || GROUP_COLORS[0] })}
+                    onPress={() => setGroupForm({ mode: 'rename', id: group.id, name: group.name, color: group.color || GROUP_COLORS[0], archived: !!group.archived })}
                     accessibilityLabel={`Rename ${group.name}`}
                   />
                 ) : null}
@@ -266,7 +277,7 @@ export function HabitsScreen({ theme, state, store, onAddHabit, onEditHabit }) {
             {(data.categories || []).map(c => (
               <Pressable
                 key={c.id}
-                onPress={() => setGroupForm({ mode: 'rename', id: c.id, name: c.name, color: c.color || GROUP_COLORS[0] })}
+                onPress={() => setGroupForm({ mode: 'rename', id: c.id, name: c.name, color: c.color || GROUP_COLORS[0], archived: !!c.archived })}
                 style={{
                   flexDirection: 'row',
                   alignItems: 'center',
@@ -286,7 +297,7 @@ export function HabitsScreen({ theme, state, store, onAddHabit, onEditHabit }) {
               </Pressable>
             ))}
             <Pressable
-              onPress={() => setGroupForm({ mode: 'create', id: null, name: '', color: GROUP_COLORS[0] })}
+              onPress={() => setGroupForm({ mode: 'create', id: null, name: '', color: GROUP_COLORS[0], archived: false })}
               style={{
                 borderWidth: 1.5,
                 borderColor: theme.flowState,
@@ -304,6 +315,7 @@ export function HabitsScreen({ theme, state, store, onAddHabit, onEditHabit }) {
       </ScrollView>
 
       <Fab theme={theme} label="New habit" icon="plus" onPress={onAddHabit} />
+      <Snackbar theme={theme} message={snack} onDone={() => setSnack('')} />
 
       {/* create / rename group dialog */}
       <Dialog
@@ -316,9 +328,9 @@ export function HabitsScreen({ theme, state, store, onAddHabit, onEditHabit }) {
             {groupForm && groupForm.mode === 'rename' ? (
               <TextButton
                 theme={theme}
-                label="Archive"
+                label={groupForm.archived ? 'Unarchive' : 'Archive'}
                 onPress={() => {
-                  store.mutate((d, now) => setCategoryArchived(d, groupForm.id, true, now)).catch(() => {})
+                  store.mutate((d, now) => setCategoryArchived(d, groupForm.id, !groupForm.archived, now)).catch(() => setSnack('Could not save — try again.'))
                   setGroupForm(null)
                 }}
               />
@@ -333,8 +345,8 @@ export function HabitsScreen({ theme, state, store, onAddHabit, onEditHabit }) {
                 store.mutate((d, now) =>
                   mode === 'create'
                     ? createCategory(d, { name: name.trim(), color }, now)
-                    : renameCategory(d, id, name.trim(), now)
-                ).catch(() => {})
+                    : renameCategory(d, id, name.trim(), color, now)
+                ).catch(() => setSnack('Could not save the group — try again.'))
                 setGroupForm(null)
               }}
             />

@@ -8,7 +8,6 @@ const chokidar = require('chokidar');
 let mainWindow;
 let dataFilePath = null;
 let watcher = null;
-let isExternalWrite = false;
 let watcherEnabled = true; // default: auto-sync ON (backward compat)
 const FILE_POLL_INTERVAL_MS = 15_000;
 
@@ -29,7 +28,7 @@ let lastSerializedTracker = null;
 
 // Guard: refuse files written by a NEWER app version. Delegates to the shared
 // core package — the single authority on schema rules (zero drift principle).
-const { checkSchemaVersion } = require('@habit-tracker/core');
+const { checkSchemaVersion, validateAndHealData, rebaseSaveOntoFresh } = require('@habit-tracker/core');
 
 function assertLoadableSchema(parsed) {
   const check = checkSchemaVersion(parsed);
@@ -120,12 +119,36 @@ async function initializeDataPath() {
   }
 }
 
-// Save current data path to app state
+// Save current data path to app state. MERGES with the existing state —
+// overwriting it wholesale used to wipe the iconTheme and watcherEnabled
+// preferences every time the data file was moved or re-picked.
 async function saveDataPath(filePath) {
   if (!filePath) return;
-  
-  const appState = { dataPath: filePath };
-  await fs.writeFile(appStatePath, JSON.stringify(appState, null, 2));
+  try {
+    const existing = await readAppStateFile();
+    const appState = { ...existing, dataPath: filePath };
+    cachedAppState = appState;
+    await atomicWriteFile(appStatePath, JSON.stringify(appState, null, 2));
+  } catch (e) {
+    console.error('Could not persist data path:', e.message);
+  }
+}
+
+// Read app-state.json as an object ({} when missing/corrupt).
+async function readAppStateFile() {
+  try {
+    return JSON.parse(await fs.readFile(appStatePath, 'utf8').catch(() => '{}'));
+  } catch (e) {
+    return {};
+  }
+}
+
+// Atomic write helper — same tmp+rename discipline as the data file, so a
+// crash mid-write can never leave a half-written JSON behind.
+async function atomicWriteFile(targetPath, content) {
+  const tempPath = targetPath + '.tmp';
+  await fs.writeFile(tempPath, content, 'utf8');
+  await fs.rename(tempPath, targetPath);
 }
 
 // Atomic save using temp file
@@ -186,6 +209,7 @@ async function setupWatcher() {
   if (!dataFilePath) return;
   
   const dirPath = path.dirname(dataFilePath);
+  const backupDirName = path.join(dirPath, '.backups');
   watcher = chokidar.watch([dirPath], {
     ignoreInitial: true,
     // Synced folders do not reliably forward filesystem events to Electron.
@@ -193,19 +217,50 @@ async function setupWatcher() {
     usePolling: true,
     interval: FILE_POLL_INTERVAL_MS,
     ignored: (filePath) => {
-      // Ignore temporary files created by our atomic save
-      return filePath.includes('.tmp') || 
+      // Ignore temporary files created by our atomic save (and the mobile
+      // app's SAF tmp sibling), editor swap files, and the backup folder —
+      // polling 20 backup copies every cycle is pure I/O waste.
+      return filePath.includes('.tmp') ||
              filePath.includes('~') ||
-             filePath.endsWith('.bak');
+             filePath.endsWith('.bak') ||
+             filePath === backupDirName ||
+             filePath.startsWith(backupDirName + path.sep) ||
+             filePath === path.join(dirPath, '.stfolder') || // Syncthing marker
+             filePath.startsWith(path.join(dirPath, '.stfolder') + path.sep);
     }
   });
 
   watcher.on('change', async (changedPath) => {
-    if (changedPath === dataFilePath && !isExternalWrite) {
-      // Guard against sending to a destroyed window
+    if (changedPath !== dataFilePath) return;
+    // CONTENT IS THE TRUTH: the old isExternalWrite flag reset long before a
+    // polling watcher (interval up to 15 s) delivered our own save back to
+    // us, so the app regularly treated its own writes as external changes
+    // and reloaded over in-flight user edits. Compare the file's serialized
+    // content against the last content this process knows about instead —
+    // identical content means the event is our own echo (or a no-op sync
+    // rewrite) and is ignored regardless of timing.
+    try {
+      const raw = await fs.readFile(dataFilePath, 'utf8');
+      let parsed;
+      try {
+        parsed = JSON.parse(raw);
+      } catch (e) {
+        // Mid-sync garbage (a sync client streaming blocks into the file).
+        // The mobile app settles this case with retries before declaring
+        // damage; here the right move is to ignore the event — the next poll
+        // delivers the settled content, and a transient read must never kick
+        // the user out of their working board.
+        return;
+      }
+      if (JSON.stringify(parsed) === lastSerializedTracker) {
+        return; // our own write echoing back — not an external change
+      }
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send('external-change', changedPath);
       }
+    } catch (e) {
+      // File vanished mid-read (sync rotation) — the next poll reports the
+      // new state. Never surface transient watcher errors.
     }
   });
 }
@@ -216,12 +271,29 @@ function createWindow(iconTheme) {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
+    // Never squeeze the nav/editor into an unusable strip.
+    minWidth: 900,
+    minHeight: 600,
+    // Matches the light canvas so the very first painted frame (before the
+    // renderer applies the saved theme) doesn't flash bright white.
+    backgroundColor: '#EEF2FF',
+    // Painted-first show: the window only appears once the renderer has its
+    // first frame, which includes the inline theme script — dark-theme users
+    // no longer get a white flash at every launch.
+    show: false,
     icon: iconPath,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
       spellcheck: false
+    }
+  });
+
+  // Show only after first paint (see `show: false` above).
+  mainWindow.once('ready-to-show', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.show();
     }
   });
 
@@ -282,22 +354,71 @@ ipcMain.handle('load-data', async () => {
 // No additional debounce needed — avoids double-timer overhead.
 // Anti-churn: skip the disk write entirely when content is identical to the
 // last known content (no-change-no-write).
+//
+// Every write goes through core (zero drift): the payload is healed by
+// validateAndHealData before it is persisted, and files claiming a newer
+// schemaVersion than this app supports are refused — a broken renderer can
+// never smuggle unhealed or future-schema data onto disk.
+//
+// ADDITIVE REBASE (SYNC-DESIGN Option A, core rebaseSaveOntoFresh): when the
+// file on disk changed since the last content this process knew (a phone
+// write landed inside the watcher's up-to-15s poll latency), the naive
+// whole-file write would clobber the phone's check-in. Instead the save's
+// additive diff (new completions, new habits/groups, removals) is replayed
+// on top of the fresh disk content — both sides' concurrent work survives.
+// Failures are REPORTED to the renderer ({ saved: false, error }) — they
+// used to be swallowed here, so the UI showed a saved state that never
+// reached the disk and the user's changes were silently lost on quit.
 ipcMain.handle('save-data', async (event, data) => {
   if (!dataFilePath) {
     await initializeDataPath();
   }
   try {
-    const incoming = JSON.stringify(data);
-    if (lastSerializedTracker !== null && incoming === lastSerializedTracker) {
-      return { skipped: true };
+    const gate = checkSchemaVersion(data);
+    if (!gate.ok) {
+      return { saved: false, error: gate.message };
     }
-    isExternalWrite = true;
-    await atomicSave(dataFilePath, data);
-    lastSerializedTracker = incoming;
-    isExternalWrite = false;
+    const healed = validateAndHealData(data);
+    const incoming = JSON.stringify(healed);
+    if (lastSerializedTracker !== null && incoming === lastSerializedTracker) {
+      return { skipped: true, saved: true };
+    }
+
+    // Rebase when another device wrote the file inside the poll latency.
+    let payload = healed;
+    let rebased = false;
+    try {
+      const raw = await fs.readFile(dataFilePath, 'utf8');
+      const onDisk = JSON.parse(raw);
+      const diskCompact = JSON.stringify(onDisk);
+      if (
+        lastSerializedTracker !== null &&
+        diskCompact !== lastSerializedTracker &&
+        onDisk && typeof onDisk === 'object' && !Array.isArray(onDisk)
+      ) {
+        const diskGate = checkSchemaVersion(onDisk);
+        if (!diskGate.ok) {
+          // The disk now holds a NEWER-schema file (synced in meanwhile).
+          // Never overwrite it — the schema gate owns this file.
+          return { saved: false, error: diskGate.message + ' — the file on disk is from a newer app version and was not overwritten.' };
+        }
+        const fresh = validateAndHealData(onDisk);
+        const base = JSON.parse(lastSerializedTracker);
+        payload = rebaseSaveOntoFresh(healed, base, fresh);
+        rebased = true;
+      }
+    } catch (e) {
+      // Missing/unreadable/unparsable disk content → save as-is (previous
+      // behavior). A damaged file is surfaced by the load path; a save here
+      // is also how a deliberate recovery overwrite happens.
+    }
+
+    await atomicSave(dataFilePath, payload);
+    lastSerializedTracker = JSON.stringify(payload);
+    return { saved: true, rebased };
   } catch (error) {
-    isExternalWrite = false;
     console.error('Error during save:', error);
+    return { saved: false, error: error && error.message ? error.message : String(error) };
   }
 });
 
@@ -331,7 +452,9 @@ ipcMain.handle('choose-data-location', async () => {
       } else if (error.code === 'SCHEMA_VERSION_TOO_NEW') {
         throw error;
       } else {
-        throw new Error(`The selected file is not valid habit JSON: ${error.message}`);
+        const err = new Error(`The selected file is not valid habit JSON: ${error.message}`);
+        err.cause = error;
+        throw err;
       }
     }
 
@@ -466,7 +589,7 @@ ipcMain.handle('get-app-state', async () => {
 
 ipcMain.handle('set-app-state', async (event, newState) => {
   cachedAppState = { ...cachedAppState, ...newState };
-  await fs.writeFile(appStatePath, JSON.stringify(cachedAppState, null, 2));
+  await atomicWriteFile(appStatePath, JSON.stringify(cachedAppState, null, 2));
   if (newState.dataPath) {
     dataFilePath = newState.dataPath;
     if (watcherEnabled) {
@@ -544,10 +667,10 @@ ipcMain.handle('get-icon-themes', () => {
 ipcMain.handle('set-icon-theme', async (event, iconTheme) => {
   if (!ICON_THEMES.includes(iconTheme)) return { success: false, error: 'Unknown theme' };
   try {
-    const state = cachedAppState || JSON.parse(await fs.readFile(appStatePath, 'utf8').catch(() => '{}'));
+    const state = cachedAppState || await readAppStateFile();
     state.iconTheme = iconTheme;
     cachedAppState = state;
-    await fs.writeFile(appStatePath, JSON.stringify(state, null, 2));
+    await atomicWriteFile(appStatePath, JSON.stringify(state, null, 2));
   } catch (e) {
     console.error('Failed to save icon theme:', e);
   }
@@ -562,10 +685,10 @@ ipcMain.handle('reload-with-icon', async (event, iconTheme) => {
   if (!ICON_THEMES.includes(iconTheme)) return { success: false, error: 'Unknown theme' };
   // Save the icon theme preference to app state (survives data file changes)
   try {
-    const state = cachedAppState || JSON.parse(await fs.readFile(appStatePath, 'utf8').catch(() => '{}'));
+    const state = cachedAppState || await readAppStateFile();
     state.iconTheme = iconTheme;
     cachedAppState = state;
-    await fs.writeFile(appStatePath, JSON.stringify(state, null, 2));
+    await atomicWriteFile(appStatePath, JSON.stringify(state, null, 2));
   } catch (e) {
     console.error('Failed to save icon theme:', e);
   }

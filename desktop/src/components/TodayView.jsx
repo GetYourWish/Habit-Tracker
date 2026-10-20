@@ -9,6 +9,7 @@ import {
   systemFrequencies,
   TIME_OF_DAY_SLOTS
 } from '@habit-tracker/core'
+import { useToday } from '../hooks/useToday'
 
 // TodayView — the app's main page: everything that should be done TODAY,
 // grouped by the part of the day it belongs to. A habit set to "twice a
@@ -26,12 +27,6 @@ const ANYTIME = { key: 'anytime', label: 'Anytime', icon: '⏰', hint: 'whenever
 
 // Fallback cadence for habits with a broken frequency reference.
 const FALLBACK_FREQUENCY = systemFrequencies().find(f => f.key === 'daily')
-
-function todayYmd() {
-  const d = new Date()
-  const p = n => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
-}
 
 function greetingFor(hour) {
   if (hour < 5) return 'Still up? 🌙'
@@ -69,7 +64,11 @@ function buildOccurrence(habit, frequency, status, kind, slotKey, streak, weekCo
 }
 
 export default function TodayView({ data, onSave, onEditHabit, onAddHabit }) {
-  const today = todayYmd()
+  // LOCAL calendar date — completions are stored under this convention
+  // (SCHEMA.md: completing device's local calendar). useToday re-checks on a
+  // slow interval so an app left open overnight rolls to the new day
+  // instead of rendering yesterday forever.
+  const today = useToday()
   const nowHour = new Date().getHours()
   const currentSlot = slotForHour(nowHour)
   const [showResting, setShowResting] = useState(false)

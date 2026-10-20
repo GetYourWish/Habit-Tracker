@@ -22,8 +22,9 @@ import {
   TIME_OF_DAY_SLOTS
 } from '@habit-tracker/core'
 import { toggleHabitCompletion, frequencyFor } from '../actions.js'
+import { useToday } from '../hooks/useToday.js'
 import { SPACING, TYPE } from '../theme.js'
-import { GlassCard, Fab } from './ui.js'
+import { GlassCard, Fab, FilledButton, Snackbar } from './ui.js'
 
 // Fallback cadence for habits with a broken frequency reference (desktop
 // TodayView parity — legacy files get working rows, never dead check rows).
@@ -36,12 +37,6 @@ const SLOT_ICONS = {
   afternoon: 'white-balance-sunny',
   evening: 'weather-sunset',
   night: 'weather-night'
-}
-
-function todayYmd() {
-  const d = new Date()
-  const p = n => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
 }
 
 function greetingFor(hour) {
@@ -229,10 +224,17 @@ function OccurrenceRow({ theme, occ, onToggle, onEdit }) {
 
 export function TodayScreen({ theme, state, store, refreshing, onRefresh, onAddHabit, onEditHabit }) {
   const data = state.data
-  const today = todayYmd()
+  // LOCAL calendar date — completions are stored under this convention
+  // (SCHEMA.md). useToday re-checks on a slow interval (and on app foreground
+  // — Android suspends timers while backgrounded) so the screen rolls to the
+  // new day instead of rendering yesterday forever.
+  const today = useToday()
   const nowHour = new Date().getHours()
   const currentSlot = slotForHour(nowHour)
   const [showResting, setShowResting] = useState(false)
+  // A failed check-in write must never be silent: the tap visibly did
+  // nothing before, with no hint that the data was never saved.
+  const [snack, setSnack] = useState('')
 
   const completionsByHabit = useMemo(
     () => indexCompletions(data.completions || []),
@@ -330,7 +332,7 @@ export function TodayScreen({ theme, state, store, refreshing, onRefresh, onAddH
             : { habitId: occ.habit.id, date: today, slot: null, count: occ.count },
         now
       )
-    ).catch(() => {})
+    ).catch(() => setSnack('Check-in could not be saved — try again.'))
   }
 
   const pct = progress.total ? Math.round((progress.done / progress.total) * 100) : 0
@@ -345,8 +347,11 @@ export function TodayScreen({ theme, state, store, refreshing, onRefresh, onAddH
         <Text style={{ color: theme.textSecondary, ...TYPE.secondary, marginTop: 4, textAlign: 'center' }}>
           Create your first habit and start building your routine.
         </Text>
+        {/* A centered call-to-action button — NOT the floating FAB: the FAB
+            is position:absolute bottom:24, which sat ON TOP of the bottom
+            navigation bar in this state. */}
         <View style={{ marginTop: SPACING.lg }}>
-          <Fab theme={theme} label="New habit" icon="plus" onPress={onAddHabit} bottomInset={24} />
+          <FilledButton theme={theme} label="New habit" icon="plus" onPress={onAddHabit} />
         </View>
       </View>
     )
@@ -443,6 +448,7 @@ export function TodayScreen({ theme, state, store, refreshing, onRefresh, onAddH
       </ScrollView>
 
       <Fab theme={theme} label="New habit" icon="plus" onPress={onAddHabit} />
+      <Snackbar theme={theme} message={snack} onDone={() => setSnack('')} />
     </View>
   )
 }

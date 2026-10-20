@@ -169,12 +169,21 @@ describe('TodayScreen (desktop TodayView parity)', () => {
   })
 
   test('an anytime check writes a slotless completion; a done slot check undoes it', async () => {
+    // LOCAL date — the same convention the app records completions under
+    // (SCHEMA.md). The UTC-derived date used before matched the Today
+    // screen's local "today" only when the runner's local date happened to
+    // equal the UTC date, so the test flaked by timezone and hour.
+    const localYmd = () => {
+      const d = new Date()
+      const p = n => String(n).padStart(2, '0')
+      return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+    }
     const data = makeData({
       habits: [
         { id: 'h-walk', title: 'Walk', icon: '🚶', color: '#84cc16', frequencyId: FREQ_DAILY, archived: false, timesPerDay: 2, timesOfDay: ['morning', 'evening'] }
       ],
       completions: [
-        { id: 'c1', habitId: 'h-walk', date: new Date().toISOString().slice(0, 10), slot: 'morning', note: '', createdAt: '2026-09-22T08:00:00.000Z' }
+        { id: 'c1', habitId: 'h-walk', date: localYmd(), slot: 'morning', note: '', createdAt: '2026-09-22T08:00:00.000Z' }
       ],
       board: [{ type: 'habit', habitId: 'h-walk' }]
     })

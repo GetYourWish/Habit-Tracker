@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   TIME_OF_DAY_SLOTS,
   systemFrequencies,
@@ -71,6 +71,16 @@ function buildFrequencyList(data) {
 
 export default function HabitEditor({ data, onSave, onClose, habit = null, onArchive = null, onDelete = null }) {
   const isEdit = Boolean(habit && habit.id)
+
+  // Escape closes the editor — the desktop counterpart of the Android
+  // back button (the modal's onRequestClose).
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
 
   const frequencies = useMemo(
     () => buildFrequencyList(data),
@@ -169,7 +179,11 @@ export default function HabitEditor({ data, onSave, onClose, habit = null, onArc
       color,
       categoryId: categoryId || null,
       frequencyId: frequency.id,
-      archived: false
+      // Preserve the archived state on edit: saving an edit to an ARCHIVED
+      // habit used to silently resurrect it onto the Today page. Restoring
+      // is the explicit Archive/Restore button's job, not a side effect of
+      // fixing a typo.
+      archived: isEdit ? Boolean(habit.archived) : false
     }
     if (needsPerDay) habitFields.timesPerDay = perDay
     else delete habitFields.timesPerDay
@@ -178,7 +192,21 @@ export default function HabitEditor({ data, onSave, onClose, habit = null, onArc
     let habits
     let board
     if (isEdit) {
-      habits = (data.habits || []).map(h => (h.id === habit.id ? { ...h, ...habitFields } : h))
+      // PARITY FIX (cross-platform drift): the mobile editor always sends
+      // timesPerDay/timesOfDay (null = cleared) and its updateHabit deletes
+      // the keys on null. Desktop used to merge over the old habit without
+      // them, so REDUCING "3× a day" back to the cadence default or clearing
+      // the picked slots silently kept the OLD values — the edit looked
+      // saved but the schedule never changed, and the two apps wrote
+      // different data for the same user action. Explicitly drop the stale
+      // overrides here, exactly like mobile's actions.updateHabit.
+      habits = (data.habits || []).map(h => {
+        if (h.id !== habit.id) return h
+        const next = { ...h, ...habitFields }
+        if (!needsPerDay) delete next.timesPerDay
+        if (!timesOfDay) delete next.timesOfDay
+        return next
+      })
       board = data.board || []
     } else {
       const newHabit = {
@@ -361,6 +389,11 @@ export default function HabitEditor({ data, onSave, onClose, habit = null, onArc
             <span style={{ color: 'var(--text-secondary)' }}>·</span>
             <span>{previewSlots}</span>
           </div>
+          {!canSave && (
+            <p className="editor-hint" style={{ marginTop: -8, marginBottom: 4 }}>
+              Give the habit a name to save it.
+            </p>
+          )}
         </div>
 
         <div className="modal-actions">

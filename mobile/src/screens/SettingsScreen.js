@@ -9,7 +9,7 @@ import { View, Text, ScrollView, Switch, Pressable, Share } from 'react-native'
 import { MaterialCommunityIcons as Icon } from '@expo/vector-icons'
 import { TopAppBar, GlassCard, SettingsRow, Segmented, Snackbar } from '../components/ui.js'
 import { updateSettings } from '../actions.js'
-import { SPACING, TYPE } from '../theme.js'
+import { SPACING, TYPE, ACCENTS } from '../theme.js'
 import appJson from '../../app.json'
 
 const APP_VERSION = appJson.expo.version || ''
@@ -132,6 +132,38 @@ export function SettingsScreen({
               />
             }
           />
+          {/* The store has ALWAYS tracked Syncthing's conflict copies
+              (state.conflicts, refreshed on every poll) — but until now no
+              screen ever showed them. Desktop surfaces conflicts in its
+              Settings → Data tab and with an amber chip in the nav; this is
+              the mobile counterpart. */}
+          {state.conflicts && state.conflicts.length > 0 ? (
+            <View
+              style={{
+                marginTop: SPACING.sm,
+                borderWidth: 1,
+                borderColor: ACCENTS.warning,
+                backgroundColor: 'rgba(251,191,36,0.12)',
+                borderRadius: 12,
+                padding: SPACING.md
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Icon name="sync-alert" size={20} color={ACCENTS.warning} />
+                <Text style={{ color: theme.textPrimary, fontSize: 13.5, fontWeight: '700', flex: 1 }}>
+                  Sync conflict copies detected
+                </Text>
+              </View>
+              <Text style={{ color: theme.textSecondary, fontSize: 12, lineHeight: 17, marginTop: 6 }}>
+                {state.conflicts.length} conflict file{state.conflicts.length > 1 ? 's were' : ' was'} created next to
+                habit.json — another device saved changes at the same moment. The copies hold the other device's
+                edits: open your sync folder, compare, and keep what you want. This list refreshes on its own.
+              </Text>
+              <Text style={{ color: theme.textMuted, fontSize: 11, lineHeight: 15, marginTop: 6 }} numberOfLines={4}>
+                {state.conflicts.join('\n')}
+              </Text>
+            </View>
+          ) : null}
         </SectionCard>
 
         {/* ---- Appearance ---- */}

@@ -9,6 +9,7 @@ import {
   isScheduledOn,
   systemFrequencies
 } from '@habit-tracker/core'
+import { useToday } from '../hooks/useToday'
 
 // ReviewsView — how the routines are going: overall tiles + a per-habit
 // 30-day dot grid, streaks, best streaks and consistency.
@@ -36,7 +37,11 @@ function lastNDays(today, n) {
 export default function ReviewsView({ data }) {
   const [rangeDays, setRangeDays] = useState(30)
 
-  const today = new Date().toISOString().slice(0, 10)
+  // LOCAL calendar date (see SCHEMA.md) — completions are recorded under the
+  // device-local date. useToday keeps the review window anchored to the true
+  // local day even across midnight while the app stays open, and the range
+  // re-derives when the day rolls over.
+  const today = useToday()
   const weekStartsOn = (data.settings && data.settings.weekStartsOn) ?? 1
 
   const freqById = useMemo(() => {

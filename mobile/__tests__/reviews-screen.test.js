@@ -79,9 +79,15 @@ describe('ReviewsScreen (habit model)', () => {
   })
 
   test('streak counts derive from the completion log', async () => {
-    // two full days of brushing (2×/day) ending yesterday
+    // two full days of brushing (2×/day) ending yesterday — in the LOCAL
+    // calendar, the same convention the app anchors streaks on (SCHEMA.md).
+    // The UTC formatting used before could place the "yesterday" completions
+    // a day off relative to the local anchor, flipping the streak count.
     const today = new Date()
-    const ymd = d => d.toISOString().slice(0, 10)
+    const ymd = d => {
+      const p = n => String(n).padStart(2, '0')
+      return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+    }
     const yester = new Date(today.getTime() - 86400000)
     const before = new Date(today.getTime() - 2 * 86400000)
     const completions = []

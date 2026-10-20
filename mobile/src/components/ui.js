@@ -273,6 +273,8 @@ export function FilledButton({ theme, label, icon, onPress, disabled, destructiv
       onPress={onPress}
       disabled={disabled}
       android_ripple={{ color: 'rgba(255,255,255,0.2)' }}
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: !!disabled }}
       style={({ pressed }) => [
         {
           flexDirection: icon ? 'row' : undefined,

@@ -1,28 +1,9 @@
 import { useState } from 'react'
+import { applyTheme, readStoredTheme } from '../theme'
 
 // Settings — lean habit-app settings: data file, appearance, calendar.
 // (Retired task-management settings — difficulties, scoring, dashboard
 // cards, marker spacing — were removed with the task model.)
-
-function applyTheme(theme) {
-  try {
-    if (theme === 'dark') {
-      document.documentElement.setAttribute('data-theme', 'dark')
-    } else {
-      document.documentElement.removeAttribute('data-theme')
-    }
-    if (theme === 'system') {
-      const sysDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
-      if (sysDark) document.documentElement.setAttribute('data-theme', 'dark')
-      else document.documentElement.removeAttribute('data-theme')
-    }
-    localStorage.setItem('pt-theme', theme)
-  } catch (e) { /* non-fatal */ }
-}
-
-function readStoredTheme() {
-  try { return localStorage.getItem('pt-theme') || 'system' } catch (e) { return 'system' }
-}
 
 function Settings({ data, onSave, dataFile, conflicts, onBackupNow, onOpenFolder, onChangeDataFolder, autoSync, onToggleAutoSync }) {
   const [activeTab, setActiveTab] = useState('data')

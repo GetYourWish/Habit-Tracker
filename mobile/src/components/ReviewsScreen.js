@@ -12,6 +12,7 @@ import {
   calculateBestStreak,
   totalCompletions,
   describeFrequency,
+  getCurrentDate,
   systemFrequencies
 } from '@habit-tracker/core'
 import { frequencyFor } from '../actions.js'
@@ -70,7 +71,10 @@ export function ReviewsScreen({ theme, state, store }) {
   const data = state.data
   const [rangeDays, setRangeDays] = useState(30)
 
-  const today = new Date().toISOString().slice(0, 10)
+  // LOCAL calendar date (SCHEMA.md: completions are stored under the
+  // device-local date). A UTC-derived "today" shifted the review window
+  // and streak anchors by a day for users outside UTC.
+  const today = getCurrentDate()
   const weekStartsOn = (data.settings && data.settings.weekStartsOn) ?? 1
 
   const completionsByHabit = useMemo(
@@ -114,30 +118,33 @@ export function ReviewsScreen({ theme, state, store }) {
   }, [activeHabits, data, completionsByHabit, days, today, weekStartsOn])
 
   // Overall tiles (desktop summary parity).
+  //
+  // PERFECT DAYS used to be computed with a goal-sum heuristic (sum every
+  // habit's per-day goal for scheduled days and compare raw completion
+  // counts against it) — a DIFFERENT formula than desktop's per-habit
+  // satisfaction check, so the same habit.json showed different "perfect
+  // days" numbers on the phone and the desktop. Now identical with desktop
+  // ReviewsView: a day is perfect when every scheduled habit (or a
+  // weekly/monthly goal with room left) evaluates satisfied.
   const summary = useMemo(() => {
     let totalCheckins = 0
-    let bestStreak = 0
-    const byDate = {}
     for (const c of data.completions || []) {
-      if (days.includes(c.date)) {
-        totalCheckins++
-        byDate[c.date] = (byDate[c.date] || 0) + 1
-      }
+      if (days.includes(c.date)) totalCheckins++
     }
+    let bestStreak = 0
     for (const r of rows) if (r.best > bestStreak) bestStreak = r.best
     let perfectDays = 0
-    let dayGoals = {}
-    for (const r of rows) {
-      const goal = Math.max(1, Number(r.frequency && r.frequency.timesPerPeriod) || 1) * r.perDay
-      for (const d of days) {
+    for (const d of days) {
+      let allDone = true
+      let any = false
+      for (const r of rows) {
         const st = evaluateHabitStatus(r.habit, r.frequency, completionsByHabit, d, weekStartsOn)
         if (st.scheduled || st.goal > 1) {
-          dayGoals[d] = (dayGoals[d] || 0) + goal
+          any = true
+          if (!st.satisfied) { allDone = false; break }
         }
       }
-    }
-    for (const d of days) {
-      if (dayGoals[d] && byDate[d] >= dayGoals[d]) perfectDays++
+      if (any && allDone) perfectDays++
     }
     return { totalCheckins, bestStreak, perfectDays }
   }, [rows, days, data.completions, completionsByHabit, weekStartsOn])

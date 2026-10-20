@@ -163,12 +163,19 @@ export function createCategory(data, { name, color }, now) {
   return withMeta({ ...data, categories: [...(data.categories || []), newCategory] }, now)
 }
 
-export function renameCategory(data, categoryId, name, now) {
+// desktop HabitsView.saveGroup (edit mode) — renames AND applies the picked
+// color. The dialog has always offered a color picker when renaming; until
+// now the picked color was silently dropped here (apps diverged: desktop
+// saved it, mobile ignored it). `color` stays optional so existing callers
+// and tests are unaffected.
+export function renameCategory(data, categoryId, name, now, color) {
   return withMeta(
     {
       ...data,
       categories: (data.categories || []).map(c =>
-        c.id === categoryId ? { ...c, name } : c
+        c.id === categoryId
+          ? (color ? { ...c, name, color } : { ...c, name })
+          : c
       )
     },
     now

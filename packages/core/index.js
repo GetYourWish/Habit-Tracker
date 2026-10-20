@@ -31,6 +31,7 @@ const { createDefaultData } = require('./src/defaults')
 const { checkSchemaVersion, validateAndHealData } = require('./src/schema')
 const recurrence = require('./src/recurrence')
 const times = require('./src/times')
+const { rebaseSaveOntoFresh } = require('./src/merge')
 const { STARTER_GROUPS, STARTER_HABITS } = require('./src/presets')
 
 module.exports = {
@@ -59,6 +60,8 @@ module.exports = {
   // schema
   checkSchemaVersion,
   validateAndHealData,
+  // additive rebase (SYNC-DESIGN Option A) — used by whole-file writers
+  rebaseSaveOntoFresh,
   // recurrence engine (canonical habit math)
   systemFrequencies: recurrence.systemFrequencies,
   isScheduledOn: recurrence.isScheduledOn,
