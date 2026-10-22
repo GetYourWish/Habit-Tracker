@@ -1,6 +1,6 @@
 {
   "name": "habit-tracker",
-  "version": "1.2.0",
+  "version": "1.2.2",
   "description": "A personal local-first habit tracker",
   "type": "module",
   "main": "electron/main.cjs",

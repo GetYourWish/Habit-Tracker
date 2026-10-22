@@ -87,7 +87,22 @@ Streaks reflect each habit’s schedule. A weekend-only habit, for example, does
 
 ## Settings, data, and privacy
 
-Habit Tracker is **local-first**: your data is stored in one `habit.json` file rather than in an account on a remote server. The apps are **fully offline**: neither the desktop program nor the Android app connects to the internet in any way. On Windows, every network request the app could possibly make is blocked inside the app itself (web sockets included). On Android, **every build — release and debug alike — is compiled without the Internet permission**: the manifest carries explicit removal markers, so the app cannot open a socket even if some future dependency tried, and no Firebase/push/network component ships in the APK. There is no code that could go online even if it wanted to. Syncing is done by separate software you control, such as Syncthing, which watches the data folder and moves changes between devices for you.
+Habit Tracker is **local-first**: your data is stored in one `habit.json` file rather than in an account on a remote server. The apps are **fully offline**: neither the desktop program nor the Android app connects to the internet in any way, and syncing is handled entirely by separate software you control (see below) — the app itself has no syncing code at all.
+
+**Android — the complete permission inventory.** Every build (release and debug alike) goes through `mobile/plugins/with-offline-manifest.js`, which strips the template's network permissions and pins the entire transitive dependency graph (firebase-messaging, play-services-cloud-messaging, installreferrer, ShortcutBadger, …) out of the manifest merge with `tools:node="remove"` markers. The APK's whole permission surface is exactly:
+
+| Permission | Why |
+| --- | --- |
+| `POST_NOTIFICATIONS` | show the local habit reminders (Android 13+) |
+| `RECEIVE_BOOT_COMPLETED` | re-arm scheduled reminders after a reboot |
+| `USE_EXACT_ALARM` / `SCHEDULE_EXACT_ALARM` | fire reminders at the exact chosen time |
+| `<app>.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` | injected by Android's build tools themselves for Android 14+ receivers; a signature-level self-marker with no capability — it cannot be removed and grants nothing |
+
+That is the entire list. No `INTERNET`, no `ACCESS_NETWORK_STATE`, no `WAKE_LOCK`, no push/attribution/badge permissions — even if a future dependency tried to re-introduce one, the removal markers in the main manifest block it from every variant. On top of that, every network-named component is pulled out of the merged manifest: the FCM push services and receiver, Firebase's auto-init provider, and the datatransport upload pipeline. `expo-notifications` itself stays (it is what schedules the local reminders) and is verifiably offline-capable: with zero network permissions, the operating system itself blocks any socket it could ever try to open.
+
+**Windows/desktop — structural lockdown.** Every network request the app could possibly make is cancelled inside the app itself (`electron/netlock.cjs`): in packaged builds only `file://` is allowed, WebSocket handshakes die in the same gate, and Chromium's background networking (component update, safe browsing, DNS prefetch) is disabled at startup. An automated source scan in the test suite additionally fails the build if any `fetch`/XHR/WebSocket/HTTP-client call ever appears in the app code.
+
+There is no code that could go online even if it wanted to. Syncing is done by separate software you control, such as Syncthing, which watches the data folder and moves changes between devices for you. (There is no iOS build of this app; if one is ever added, the same policy applies — no network entitlements, no ATS exceptions.)
 
 In **Settings**, you can:
 
