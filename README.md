@@ -87,7 +87,7 @@ Streaks reflect each habit’s schedule. A weekend-only habit, for example, does
 
 ## Settings, data, and privacy
 
-Habit Tracker is **local-first**: your data is stored in one `habit.json` file rather than in an account on a remote server. The apps are **fully offline**: neither the desktop program nor the Android app connects to the internet in any way. On Windows, every network request the app could possibly make is blocked inside the app itself (web sockets included), and on Android the release build is built without the Internet permission at all — there is no code that could go online even if it wanted to. Syncing is done by separate software you control, such as Syncthing.
+Habit Tracker is **local-first**: your data is stored in one `habit.json` file rather than in an account on a remote server. The apps are **fully offline**: neither the desktop program nor the Android app connects to the internet in any way. On Windows, every network request the app could possibly make is blocked inside the app itself (web sockets included). On Android, **every build — release and debug alike — is compiled without the Internet permission**: the manifest carries explicit removal markers, so the app cannot open a socket even if some future dependency tried, and no Firebase/push/network component ships in the APK. There is no code that could go online even if it wanted to. Syncing is done by separate software you control, such as Syncthing, which watches the data folder and moves changes between devices for you.
 
 In **Settings**, you can:
 

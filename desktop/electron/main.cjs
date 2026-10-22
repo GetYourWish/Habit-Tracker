@@ -12,8 +12,10 @@ const { lockDownWindow } = require('./netlock.cjs');
 // ever starting its background network services (component updates, safe
 // browsing lookups, network time, DNS prefetch). Combined with the
 // per-window lockdown in netlock.cjs (every non-file request is cancelled,
-// WebSocket handshakes included) and the release Android build's stripped
-// INTERNET permission, the software cannot reach the network at all.
+// WebSocket handshakes included) and the Android build's stripped INTERNET
+// permission (every variant — debug included — see
+// mobile/plugins/with-offline-manifest.js), the software cannot reach the
+// network at all.
 app.commandLine.appendSwitch('disable-background-networking');
 app.commandLine.appendSwitch('disable-component-update');
 app.commandLine.appendSwitch('disable-domain-reliability');
