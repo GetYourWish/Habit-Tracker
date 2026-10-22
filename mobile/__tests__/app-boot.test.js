@@ -21,6 +21,22 @@ import TestRenderer, { act } from 'react-test-renderer'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import App from '../App'
 
+// Local reminder notifications (2026-10-22): the app configures them on
+// mount. The native module cannot load under jest, so provide a deterministic
+// mock (the production module degrades gracefully, but tests must not depend
+// on that).
+jest.mock('expo-notifications', () => ({
+  setNotificationHandler: jest.fn(),
+  setNotificationChannelAsync: jest.fn(async () => ({ id: 'habit-reminders' })),
+  getPermissionsAsync: jest.fn(async () => ({ granted: true, status: 'granted' })),
+  requestPermissionsAsync: jest.fn(async () => ({ granted: true, status: 'granted' })),
+  getAllScheduledNotificationsAsync: jest.fn(async () => []),
+  cancelScheduledNotificationAsync: jest.fn(async () => {}),
+  scheduleNotificationAsync: jest.fn(async () => 'mock-id'),
+  AndroidImportance: { DEFAULT: 3, HIGH: 4 },
+  SchedulableTriggerInputTypes: { DATE: 'date', TIME_INTERVAL: 'timeInterval' }
+}))
+
 // Jest has no native modules — use the official AsyncStorage mock.
 // (On-device the TurboModule exists; this is a test-environment artifact.)
 jest.mock('@react-native-async-storage/async-storage', () =>

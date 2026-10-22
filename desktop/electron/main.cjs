@@ -3,6 +3,20 @@ const path = require('path');
 const fs = require('fs').promises;
 const fsSync = require('fs');
 const chokidar = require('chokidar');
+const { lockDownWindow } = require('./netlock.cjs');
+
+// OFFLINE GUARANTEE (2026-10-22): this app is fully offline — habit.json is
+// synced between devices by SEPARATE software (Syncthing); the app itself
+// only reads and writes that file locally. These Chromium switches must be
+// appended BEFORE app ready: they stop the browser half of Electron from
+// ever starting its background network services (component updates, safe
+// browsing lookups, network time, DNS prefetch). Combined with the
+// per-window lockdown in netlock.cjs (every non-file request is cancelled,
+// WebSocket handshakes included) and the release Android build's stripped
+// INTERNET permission, the software cannot reach the network at all.
+app.commandLine.appendSwitch('disable-background-networking');
+app.commandLine.appendSwitch('disable-component-update');
+app.commandLine.appendSwitch('disable-domain-reliability');
 
 // Global variables
 let mainWindow;
@@ -289,6 +303,11 @@ function createWindow(iconTheme) {
       spellcheck: false
     }
   });
+
+  // Hard offline lockdown (see netlock.cjs): cancel every network request,
+  // deny popups/navigation/permissions. Unpacked (dev) runs may still talk
+  // to the local Vite dev server; packaged builds are file:// only.
+  lockDownWindow(mainWindow, !app.isPackaged);
 
   // Show only after first paint (see `show: false` above).
   mainWindow.once('ready-to-show', () => {

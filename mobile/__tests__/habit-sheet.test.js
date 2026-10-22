@@ -21,6 +21,20 @@ jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 24, bottom: 24, left: 0, right: 0 })
 }))
 
+// The sheet's Reminder switch asks Android for notification permission via
+// the (lazily-loaded) notifications module — deterministic mock here.
+jest.mock('expo-notifications', () => ({
+  setNotificationHandler: jest.fn(),
+  setNotificationChannelAsync: jest.fn(async () => ({ id: 'habit-reminders' })),
+  getPermissionsAsync: jest.fn(async () => ({ granted: true, status: 'granted' })),
+  requestPermissionsAsync: jest.fn(async () => ({ granted: true, status: 'granted' })),
+  getAllScheduledNotificationsAsync: jest.fn(async () => []),
+  cancelScheduledNotificationAsync: jest.fn(async () => {}),
+  scheduleNotificationAsync: jest.fn(async () => 'mock-id'),
+  AndroidImportance: { DEFAULT: 3, HIGH: 4 },
+  SchedulableTriggerInputTypes: { DATE: 'date', TIME_INTERVAL: 'timeInterval' }
+}))
+
 const theme = buildTheme('dark', 'dark')
 const NOW = '2026-09-22T12:00:00.000Z'
 
@@ -146,6 +160,43 @@ function collectText(inst) {
 }
 
 describe('HabitSheet — per-occurrence time-of-day pickers', () => {
+  test('appear at 1×/day too (the 2026-10-22 fix) and save the picked slot', async () => {
+    const { tree, store } = await mountSheet()
+
+    // name it
+    const nameInput = tree.root.findAll(n => n.props.placeholder === 'e.g. Brush teeth')[0]
+    await act(async () => {
+      nameInput.props.onChangeText('Morning vitamins')
+      await Promise.resolve()
+    })
+
+    // perDay stays at 1 — the single picker is visible with Anytime default
+    const t1any = tree.root.findAll(n => n.props.accessibilityLabel === 'Time 1 of 1: Anytime')
+    expect(t1any.length).toBeGreaterThanOrEqual(1)
+    expect(t1any[0].props.accessibilityState.selected).toBe(true)
+
+    // pick Evening for the single occurrence
+    const t1e = tree.root.findAll(n => n.props.accessibilityLabel === 'Time 1 of 1: Evening')[0]
+    await act(async () => {
+      t1e.props.onPress()
+      await Promise.resolve()
+    })
+    expect(tree.root.findAll(n => n.props.accessibilityLabel === 'Time 1 of 1: Evening')[0].props.accessibilityState.selected).toBe(true)
+
+    // save: timesOfDay lands on the 1×/day habit
+    const createBtn = tree.root.findAll(n => typeof n.props.onPress === 'function' && collectText(n).includes('Create habit'))[0]
+    await act(async () => {
+      createBtn.props.onPress()
+      await Promise.resolve()
+    })
+    expect(store.calls).toHaveLength(1)
+    const built = store.calls[0](freqData(), NOW)
+    const habit = built.habits[built.habits.length - 1]
+    expect(habit.title).toBe('Morning vitamins')
+    expect(habit.timesPerDay).toBeUndefined() // cadence default (1×) carries it
+    expect(habit.timesOfDay).toEqual(['evening'])
+  })
+
   test('appear at 2×/day with Morning/Evening suggested; switching #2 works', async () => {
     const { tree, store } = await mountSheet()
 
@@ -193,6 +244,91 @@ describe('HabitSheet — per-occurrence time-of-day pickers', () => {
     expect(habit.timesPerDay).toBe(2)
     expect(habit.timesOfDay).toEqual(['morning', 'night'])
     expect(built.board.some(i => i.type === 'habit' && i.habitId === habit.id)).toBe(true)
+  })
+})
+
+describe('HabitSheet — per-habit reminder preference (2026-10-22)', () => {
+  test('defaults to off; enabling + saving persists habit.reminder with the chosen time', async () => {
+    const { tree, store } = await mountSheet()
+
+    const nameInput = tree.root.findAll(n => n.props.placeholder === 'e.g. Brush teeth')[0]
+    await act(async () => {
+      nameInput.props.onChangeText('Stretch')
+      await Promise.resolve()
+    })
+
+    // the reminder switch exists and is OFF by default (opt-in). RN's
+    // Switch mock replicates props across internal nodes, so match on the
+    // node that carries our onValueChange handler.
+    const switches = tree.root.findAll(
+      n => n.props && n.props.accessibilityLabel === 'Remind me on due days' && typeof n.props.onValueChange === 'function'
+    )
+    expect(switches.length).toBe(1)
+    expect(switches[0].props.value).toBe(false)
+
+    // toggle ON (asks permission via the mocked module) → time field appears
+    await act(async () => {
+      await switches[0].props.onValueChange(true)
+    })
+    const laterHour = tree.root.findAll(n => n.props.accessibilityLabel === 'Later hour (Reminder time)')[0]
+    expect(laterHour).toBeTruthy()
+    // default time derives from settings (none set) → 09:00; bump to 10:00
+    await act(async () => {
+      laterHour.props.onPress()
+      await Promise.resolve()
+    })
+
+    const createBtn = tree.root.findAll(n => typeof n.props.onPress === 'function' && collectText(n).includes('Create habit'))[0]
+    await act(async () => {
+      createBtn.props.onPress()
+      await Promise.resolve()
+    })
+    expect(store.calls).toHaveLength(1)
+    const built = store.calls[0](freqData(), NOW)
+    const habit = built.habits[built.habits.length - 1]
+    expect(habit.reminder).toEqual({ enabled: true, time: '10:00' })
+  })
+
+  test('saving with reminders off persists enabled:false (explicit opt-out, time retained for later)', async () => {
+    const { tree, store } = await mountSheet()
+    const nameInput = tree.root.findAll(n => n.props.placeholder === 'e.g. Brush teeth')[0]
+    await act(async () => {
+      nameInput.props.onChangeText('Meditate')
+      await Promise.resolve()
+    })
+    const createBtn = tree.root.findAll(n => typeof n.props.onPress === 'function' && collectText(n).includes('Create habit'))[0]
+    await act(async () => {
+      createBtn.props.onPress()
+      await Promise.resolve()
+    })
+    const built = store.calls[0](freqData(), NOW)
+    const habit = built.habits[built.habits.length - 1]
+    expect(habit.reminder).toEqual({ enabled: false, time: '09:00' })
+  })
+
+  test('editing a habit with a stored reminder seeds the switch and the time', async () => {
+    const data = freqData()
+    data.habits.push({
+      id: 'h-9',
+      title: 'Water the plants',
+      icon: '🪴',
+      frequencyId: 'f-daily',
+      archived: false,
+      reminder: { enabled: true, time: '18:30' }
+    })
+    const store = makeStore()
+    const { tree } = await mountSheet(data, store, data.habits[0])
+
+    const sw = tree.root.findAll(
+      n => n.props && n.props.accessibilityLabel === 'Remind me on due days' && typeof n.props.onValueChange === 'function'
+    )[0]
+    expect(sw.props.value).toBe(true)
+    // the TimeField renders the stored 18:30 as hour/minute text nodes
+    // (with the ':' separator) — not the 09:00 default.
+    const texts = textOf(tree)
+    expect(texts).toContain('18')
+    expect(texts).toContain('30')
+    expect(texts).not.toContain('09')
   })
 })
 

@@ -16,6 +16,22 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import App from '../App'
 import { setCorruptSettleForTests } from '../src/storage/store.js'
 
+// The app now schedules LOCAL reminder notifications (2026-10-22). The
+// notifications module is fully defensive in production, but the test
+// environment must stay deterministic: mock the native module so mounting
+// the whole App never depends on expo-notifications loading under jest.
+jest.mock('expo-notifications', () => ({
+  setNotificationHandler: jest.fn(),
+  setNotificationChannelAsync: jest.fn(async () => ({ id: 'habit-reminders' })),
+  getPermissionsAsync: jest.fn(async () => ({ granted: true, status: 'granted' })),
+  requestPermissionsAsync: jest.fn(async () => ({ granted: true, status: 'granted' })),
+  getAllScheduledNotificationsAsync: jest.fn(async () => []),
+  cancelScheduledNotificationAsync: jest.fn(async () => {}),
+  scheduleNotificationAsync: jest.fn(async () => 'mock-id'),
+  AndroidImportance: { DEFAULT: 3, HIGH: 4 },
+  SchedulableTriggerInputTypes: { DATE: 'date', TIME_INTERVAL: 'timeInterval' }
+}))
+
 // The corrupt-file settle window is real wall-clock time on a device
 // (700 ms × 3 retries). The corrupted-file flows below must reach the
 // recovery screen within the test's microtask flushes, so the settle is
@@ -243,10 +259,16 @@ describe('post-salvage device flow (create habit / change theme)', () => {
     // Today is up with the salvaged habit visible
     expect(findByText(tree, 'Existing salvaged habit')).toBe(true)
 
-    // 3) create a habit through the real FAB + sheet
-    const fab = tree.root.findAllByProps({ accessibilityLabel: 'New habit' })[0]
+    // 3) create a habit: Today no longer carries the floating FAB (removed
+    //    2026-10-22 — it clogged the view); the Habits tab's inline button
+    //    is the creation entry point now.
+    const habitsTab = tree.root.findByProps({ accessibilityLabel: 'Habits' })
     await act(async () => {
-      fab.props.onPress()
+      habitsTab.props.onPress()
+    })
+    const addBtn = tree.root.findAllByProps({ accessibilityLabel: 'New habit' })[0]
+    await act(async () => {
+      addBtn.props.onPress()
     })
     const sheetInput = tree.root.findByProps({ placeholder: 'e.g. Brush teeth' })
     await act(async () => {

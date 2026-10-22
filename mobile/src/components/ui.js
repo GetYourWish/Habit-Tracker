@@ -407,3 +407,80 @@ export function Snackbar({ theme, message, onDone, duration = 2600 }) {
     </View>
   )
 }
+
+// TimeField — compact HH:MM picker for the reminder system (2026-10-22):
+// −/+ steppers for hours (1 h) and minutes (5 min), the same visual
+// language as the Times-per-day stepper in HabitSheet. There is no native
+// time picker in the dependency set (and none is needed for an offline
+// app): a stepper is deterministic, testable and works identically in
+// every Android version. `value` is 'HH:MM'; minutes snap to 5s on first
+// press when the stored value is finer-grained.
+export function TimeField({ theme, value, onChange, accessibilityLabel }) {
+  const parts = /^(\d{1,2}):(\d{2})$/.exec(String(value || '')) || []
+  const h = Math.min(23, Math.max(0, Number(parts[1] || 0)))
+  const m = Math.min(59, Math.max(0, Number(parts[2] || 0)))
+  const pad = n => String(n).padStart(2, '0')
+
+  const bumpHour = delta => {
+    const next = ((h + delta) % 24 + 24) % 24
+    onChange(`${pad(next)}:${pad(m)}`)
+  }
+  const bumpMinute = delta => {
+    // 5-minute steps; a stored value off the grid snaps to the nearest 5.
+    const snapped = Math.round(m / 5) * 5
+    const next = ((snapped + delta * 5) % 60 + 60) % 60
+    onChange(`${pad(h)}:${pad(next)}`)
+  }
+
+  const stepBtn = (label, onPress, disabled) => (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      android_ripple={{ color: theme.ripple }}
+      style={{
+        width: 36,
+        height: 36,
+        borderRadius: 10,
+        backgroundColor: theme.bgTertiary,
+        alignItems: 'center',
+        justifyContent: 'center',
+        opacity: disabled ? 0.35 : 1
+      }}
+      accessibilityLabel={label}
+      accessibilityRole="button"
+    >
+      <Text style={{ color: theme.textPrimary, fontSize: 19, fontWeight: '800' }}>
+        {label.startsWith('More') ? '＋' : '−'}
+      </Text>
+    </Pressable>
+  )
+
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: SPACING.sm,
+        alignSelf: 'flex-start',
+        borderWidth: 1.5,
+        borderColor: theme.border,
+        borderRadius: 14,
+        padding: 4,
+        backgroundColor: theme.bgSecondary
+      }}
+      accessibilityLabel={accessibilityLabel}
+    >
+      {stepBtn(`Earlier hour (${accessibilityLabel})`, () => bumpHour(-1))}
+      <Text style={{ color: theme.textPrimary, fontSize: 16, fontWeight: '800', minWidth: 30, textAlign: 'center' }}>
+        {pad(h)}
+      </Text>
+      {stepBtn(`Later hour (${accessibilityLabel})`, () => bumpHour(1))}
+      <Text style={{ color: theme.textMuted, fontSize: 16, fontWeight: '800' }}>:</Text>
+      {stepBtn(`Earlier minutes (${accessibilityLabel})`, () => bumpMinute(-1))}
+      <Text style={{ color: theme.textPrimary, fontSize: 16, fontWeight: '800', minWidth: 30, textAlign: 'center' }}>
+        {pad(m)}
+      </Text>
+      {stepBtn(`Later minutes (${accessibilityLabel})`, () => bumpMinute(1))}
+    </View>
+  )
+}

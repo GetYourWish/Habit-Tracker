@@ -12,6 +12,21 @@ import TestRenderer, { act } from 'react-test-renderer'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import App from '../App'
 
+// Local reminder notifications (2026-10-22): deterministic native-module
+// mock so the full app tree never depends on expo-notifications loading
+// under jest (the production module degrades gracefully by itself).
+jest.mock('expo-notifications', () => ({
+  setNotificationHandler: jest.fn(),
+  setNotificationChannelAsync: jest.fn(async () => ({ id: 'habit-reminders' })),
+  getPermissionsAsync: jest.fn(async () => ({ granted: true, status: 'granted' })),
+  requestPermissionsAsync: jest.fn(async () => ({ granted: true, status: 'granted' })),
+  getAllScheduledNotificationsAsync: jest.fn(async () => []),
+  cancelScheduledNotificationAsync: jest.fn(async () => {}),
+  scheduleNotificationAsync: jest.fn(async () => 'mock-id'),
+  AndroidImportance: { DEFAULT: 3, HIGH: 4 },
+  SchedulableTriggerInputTypes: { DATE: 'date', TIME_INTERVAL: 'timeInterval' }
+}))
+
 jest.mock('react-native-safe-area-context', () => {
   const React = require('react')
   const insets = { top: 0, bottom: 0, left: 0, right: 0 }

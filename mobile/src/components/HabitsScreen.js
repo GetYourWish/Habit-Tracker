@@ -25,7 +25,7 @@ import {
 } from '../actions.js'
 import { frequencyFor } from '../actions.js'
 import { SPACING, TYPE, HABIT_ACCENTS } from '../theme.js'
-import { GlassCard, Fab, TopAppBar, IconBtn, Dialog, TextButton, FilledButton, Snackbar } from './ui.js'
+import { GlassCard, TopAppBar, IconBtn, Dialog, TextButton, FilledButton, Snackbar } from './ui.js'
 
 const GROUP_COLORS = ['#34d399', '#60a5fa', '#a78bfa', '#fbbf24', '#f472b6', '#22d3ee', '#fb7185', '#84cc16']
 const FALLBACK_FREQUENCY = systemFrequencies().find(f => f.key === 'daily')
@@ -222,6 +222,35 @@ export function HabitsScreen({ theme, state, store, onAddHabit, onEditHabit }) {
         }
       />
       <ScrollView contentContainerStyle={{ padding: SPACING.md, paddingBottom: 110 }}>
+        {/* New habit — an INLINE button, replacing the old floating FAB
+            (user request 2026-10-22: remove the floating "New habit"
+            button because it clogged the view). It scrolls WITH the list,
+            covers nothing, and is the first thing on the management page
+            where habits are created anyway. */}
+        <Pressable
+          onPress={onAddHabit}
+          android_ripple={{ color: theme.ripple }}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 7,
+            borderWidth: 1.5,
+            borderColor: theme.flowState,
+            borderRadius: 14,
+            paddingVertical: 12,
+            marginBottom: SPACING.md,
+            backgroundColor: theme.bgSecondary
+          }}
+          accessibilityLabel="New habit"
+          accessibilityRole="button"
+        >
+          <Icon name="plus" size={19} color={theme.flowState} />
+          <Text style={{ color: theme.flowState, fontWeight: '800', fontSize: 14.5 }}>
+            New habit
+          </Text>
+        </Pressable>
+
         {[...grouped.entries()].map(([categoryId, habits]) => {
           const group = categoryId ? groups[categoryId] : null
           return (
@@ -314,7 +343,6 @@ export function HabitsScreen({ theme, state, store, onAddHabit, onEditHabit }) {
         </GlassCard>
       </ScrollView>
 
-      <Fab theme={theme} label="New habit" icon="plus" onPress={onAddHabit} />
       <Snackbar theme={theme} message={snack} onDone={() => setSnack('')} />
 
       {/* create / rename group dialog */}

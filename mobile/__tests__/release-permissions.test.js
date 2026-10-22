@@ -13,12 +13,13 @@ const {
   composeReleaseManifest,
   ensureReleaseManifest,
   RELEASE_PERMISSIONS_TO_STRIP,
+  RELEASE_PERMISSIONS_TO_DECLARE,
   TAG
 } = require('../plugins/with-release-permissions')
 
 describe('with-release-permissions plugin', () => {
   describe('composeReleaseManifest', () => {
-    const manifest = composeReleaseManifest(RELEASE_PERMISSIONS_TO_STRIP)
+    const manifest = composeReleaseManifest(RELEASE_PERMISSIONS_TO_STRIP, RELEASE_PERMISSIONS_TO_DECLARE)
 
     test('strips exactly the five unused permissions', () => {
       expect(RELEASE_PERMISSIONS_TO_STRIP).toEqual([
@@ -48,10 +49,47 @@ describe('with-release-permissions plugin', () => {
       // one root element: exactly one <manifest ...> open and one close
       expect(manifest.split('<manifest').length - 1).toBe(1)
       expect(manifest.split('</manifest>').length - 1).toBe(1)
-      // no stray uses-permission WITHOUT the removal directive
-      const permissisonLines = manifest.split('\n').filter(l => l.includes('uses-permission'))
-      for (const line of permissisonLines) {
-        expect(line).toContain('tools:node="remove"')
+      // every uses-permission line is EITHER a removal directive (template
+      // baggage) or an intentionally declared exact-alarm permission —
+      // nothing else may sneak into the overlay.
+      const permissionLines = manifest.split('\n').filter(l => l.includes('uses-permission'))
+      const declared = new Set(RELEASE_PERMISSIONS_TO_DECLARE)
+      for (const line of permissionLines) {
+        const stripped = line.includes('tools:node="remove"')
+        const isDeclared = [...declared].some(p =>
+          line.includes('android:name="' + p + '"') && !line.includes('tools:node=')
+        )
+        expect(stripped || isDeclared).toBe(true)
+      }
+    })
+
+    test('INTERNET is stripped — the release app cannot open sockets at all', () => {
+      expect(manifest).toContain(
+        '<uses-permission android:name="android.permission.INTERNET" tools:node="remove"/>'
+      )
+    })
+
+    test('declares the exact-alarm pair for the local reminder system', () => {
+      // 2026-10-22 notification system: USE_EXACT_ALARM (13+, auto-granted)
+      // and SCHEDULE_EXACT_ALARM (12) make reminders fire on time. These
+      // are ALARM permissions — not network — and must NOT be stripped.
+      expect(RELEASE_PERMISSIONS_TO_DECLARE).toEqual([
+        'android.permission.USE_EXACT_ALARM',
+        'android.permission.SCHEDULE_EXACT_ALARM'
+      ])
+      for (const p of RELEASE_PERMISSIONS_TO_DECLARE) {
+      expect(manifest).toContain('<uses-permission android:name="' + p + '"/>')
+        expect(manifest).not.toContain(
+          '<uses-permission android:name="' + p + '" tools:node="remove"/>'
+        )
+      }
+    })
+
+    test('keeps the notification permissions the library declares', () => {
+      // POST_NOTIFICATIONS + RECEIVE_BOOT_COMPLETED arrive via the
+      // expo-notifications library manifest and must survive this overlay.
+      for (const p of ['POST_NOTIFICATIONS', 'RECEIVE_BOOT_COMPLETED']) {
+        expect(manifest).not.toContain(p + '" tools:node="remove"')
       }
     })
 

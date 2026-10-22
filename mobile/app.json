@@ -2,7 +2,7 @@
   "expo": {
     "name": "Habit Tracker",
     "slug": "habit-tracker",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "scheme": "habit-tracker",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -15,7 +15,7 @@
     },
     "android": {
       "package": "com.getyourwish.habittracker",
-      "versionCode": 13,
+      "versionCode": 14,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#EEF2FF"
@@ -37,7 +37,14 @@
       "./plugins/with-windows-cmake",
       "./plugins/with-standalone-release",
       "./plugins/with-crash-log",
-      "./plugins/with-release-permissions"
+      "./plugins/with-release-permissions",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#34d399"
+        }
+      ]
     ],
     "extra": {
       "schemaVersionSupported": 1

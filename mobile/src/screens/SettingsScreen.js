@@ -5,10 +5,16 @@
 // write, so settings edits sync to the desktop like any other mutation.
 
 import React, { useState } from 'react'
-import { View, Text, ScrollView, Switch, Pressable, Share } from 'react-native'
+import { View, Text, ScrollView, Switch, Pressable, Share, Linking } from 'react-native'
 import { MaterialCommunityIcons as Icon } from '@expo/vector-icons'
-import { TopAppBar, GlassCard, SettingsRow, Segmented, Snackbar } from '../components/ui.js'
+import { TopAppBar, GlassCard, SettingsRow, Segmented, Snackbar, TimeField } from '../components/ui.js'
 import { updateSettings } from '../actions.js'
+import {
+  sendTestReminder,
+  requestReminderPermission,
+  getReminderPermission
+} from '../notifications/reminders.js'
+import { notificationSettings, DEFAULT_SETTINGS_NOTIFICATIONS } from '../notifications/plan.js'
 import { SPACING, TYPE, ACCENTS } from '../theme.js'
 import appJson from '../../app.json'
 
@@ -38,10 +44,87 @@ export function SettingsScreen({
 }) {
   const [busy, setBusy] = useState(false)
   const [snack, setSnack] = useState('')
+  // Android 13+ can revoke POST_NOTIFICATIONS; surfaced so the master
+  // switch never lies about reminders actually being deliverable.
+  const [permBlocked, setPermBlocked] = useState(null) // null = not checked yet
 
   const data = state.data
   const settings = (data && data.settings) || {}
   const weekStartsOn = settings.weekStartsOn ?? 1
+  const notif = notificationSettings(data)
+
+  // Check the OS permission once when the section first matters (master
+  // switch ON) so a revoked permission is visible immediately.
+  React.useEffect(() => {
+    if (!notif.enabled || permBlocked !== null) return
+    let alive = true
+    getReminderPermission().then(ok => {
+      if (alive) setPermBlocked(!ok)
+    })
+    return () => {
+      alive = false
+    }
+  }, [notif.enabled, permBlocked])
+
+  const setRemindersEnabled = async enabled => {
+    if (enabled) {
+      const granted = await requestReminderPermission()
+      setPermBlocked(!granted)
+      if (!granted) {
+        setSnack('Android is blocking notifications — allow Habit Tracker in the phone\u2019s notification settings.')
+      }
+    } else {
+      setPermBlocked(null)
+    }
+    store
+      .mutate((d, now) =>
+        updateSettings(
+          d,
+          {
+            notifications: {
+              ...DEFAULT_SETTINGS_NOTIFICATIONS,
+              ...(d.settings && d.settings.notifications),
+              enabled
+            }
+          },
+          now
+        )
+      )
+      .catch(() => setSnack('Could not save the setting'))
+  }
+
+  const setDefaultReminderTime = value => {
+    store
+      .mutate((d, now) =>
+        updateSettings(
+          d,
+          {
+            notifications: {
+              ...DEFAULT_SETTINGS_NOTIFICATIONS,
+              ...(d.settings && d.settings.notifications),
+              defaultTime: value
+            }
+          },
+          now
+        )
+      )
+      .catch(() => setSnack('Could not save the setting'))
+  }
+
+  const testReminder = async () => {
+    const granted = await requestReminderPermission()
+    setPermBlocked(!granted)
+    if (!granted) {
+      setSnack('Android is blocking notifications — allow Habit Tracker in the phone\u2019s notification settings.')
+      return
+    }
+    try {
+      await sendTestReminder()
+      setSnack('Test reminder coming in a few seconds…')
+    } catch (e) {
+      setSnack('Could not schedule the test reminder')
+    }
+  }
 
   const setWeekStart = value => {
     store
@@ -164,6 +247,80 @@ export function SettingsScreen({
               </Text>
             </View>
           ) : null}
+        </SectionCard>
+
+        {/* ---- Reminders (2026-10-22 notification system) ---- */}
+        <SectionCard theme={theme} title="Reminders">
+          <Text style={{ color: theme.textSecondary, ...TYPE.caption, marginBottom: SPACING.sm }}>
+            Optional per-habit reminders, scheduled locally on this phone. Habit Tracker
+            never connects to the internet — reminders work fully offline.
+          </Text>
+          <SettingsRow
+            theme={theme}
+            icon="bell-outline"
+            label="Habit reminders"
+            hint={
+              permBlocked
+                ? 'Android is blocking notifications for this app'
+                : 'Master switch — each habit opts in from its editor'
+            }
+            control={
+              <Switch
+                value={notif.enabled}
+                onValueChange={setRemindersEnabled}
+                trackColor={{ true: theme.flowState, false: theme.rowFillSelected }}
+                thumbColor="#ffffff"
+                accessibilityLabel="Habit reminders"
+              />
+            }
+          />
+          {permBlocked ? (
+            <Pressable
+              onPress={() =>
+                Linking.openSettings().catch(() => setSnack('Could not open the notification settings'))
+              }
+              style={{
+                borderWidth: 1,
+                borderColor: ACCENTS.warning,
+                backgroundColor: 'rgba(251,191,36,0.12)',
+                borderRadius: 12,
+                padding: SPACING.md,
+                marginBottom: SPACING.sm
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Open notification settings"
+            >
+              <Text style={{ color: theme.textPrimary, fontSize: 12.5, lineHeight: 17 }}>
+                Notifications are turned off for Habit Tracker in Android. Tap here to open
+                the app’s notification settings and allow them, then come back.
+              </Text>
+            </Pressable>
+          ) : null}
+          <SettingsRow
+            theme={theme}
+            icon="clock-outline"
+            label="Default reminder time"
+            hint="Used by habits that don\u2019t pick their own time"
+          />
+          <View style={{ alignItems: 'flex-start', marginTop: -6, marginBottom: SPACING.sm }}>
+            <TimeField
+              theme={theme}
+              value={notif.defaultTime}
+              onChange={setDefaultReminderTime}
+              accessibilityLabel="Default reminder time"
+            />
+          </View>
+          <SettingsRow
+            theme={theme}
+            icon="send-outline"
+            label="Send a test reminder"
+            hint="Check that reminders look and sound right"
+            onPress={testReminder}
+          />
+          <Text style={{ color: theme.textMuted, ...TYPE.caption, marginTop: SPACING.xs }}>
+            Reminders fire only on days a habit is due, skip the day once it’s checked
+            off, and are re-armed every time you open the app.
+          </Text>
         </SectionCard>
 
         {/* ---- Appearance ---- */}

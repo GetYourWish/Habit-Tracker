@@ -166,8 +166,13 @@ export default function HabitEditor({ data, onSave, onClose, habit = null, onArc
     if (!canSave) return
     const nowIso = new Date().toISOString()
     // Slot storage: drop an all-anytime list (a slotless habit).
+    // 2026-10-22 fix: a SINGLE-occurrence habit may also carry a preferred
+    // time ("every day, in the morning") — the old `perDay > 1` gate forced
+    // every 1×/day habit into Anytime even though the user picked a time.
+    // resolveTimesOfDay caps at the effective per-day count, so a
+    // timesOfDay of ['morning'] on a once-a-day habit is valid core data.
     let timesOfDay = null
-    if (perDay > 1 && slots.some(s => s)) {
+    if (slots.some(s => s)) {
       timesOfDay = slots.slice(0, perDay)
     }
     const freqDefaultPerDay = Math.max(1, Number(frequency && frequency.timesPerDay) || 1)
@@ -345,40 +350,43 @@ export default function HabitEditor({ data, onSave, onClose, habit = null, onArc
           </div>
         </div>
 
-        {perDay > 1 && (
-          <div className="editor-field" data-testid="slot-pickers">
-            <label className="editor-label">Best time of day — one choice per time</label>
-            <div className="slot-pickers">
-              {slots.slice(0, perDay).map((slot, i) => (
-                <div className="slot-picker" key={i}>
-                  <span className="slot-picker-label">
-                    {i + 1}. {slot ? TIME_OF_DAY_SLOTS.find(s => s.key === slot).label : 'Anytime'}
-                  </span>
-                  <div className="slot-picker-options">
-                    {SLOT_OPTIONS.map(opt => (
-                      <button
-                        key={String(opt.key)}
-                        type="button"
-                        className={`slot-option ${slot === opt.key ? 'picked' : ''}`}
-                        style={{ '--slot-color': opt.color }}
-                        onClick={() => setSlotAt(i, opt.key)}
-                        aria-pressed={slot === opt.key}
-                        aria-label={`Time ${i + 1} of ${perDay}: ${opt.label}`}
-                        title={`${opt.label}${opt.key ? ` (${(TIME_OF_DAY_SLOTS.find(s => s.key === opt.key) || {}).hint || ''})` : ' whenever'}`}
-                      >
-                        <span>{opt.icon}</span> {opt.label}
-                      </button>
-                    ))}
-                  </div>
+        {/* 2026-10-22 fix: the picker renders for EVERY per-day count,
+            including 1× — "every day, in the morning" is a first-class
+            choice, not an Anytime-only default. At 1× the picker is a
+            single "when does this usually happen?" row. */}
+        <div className="editor-field" data-testid="slot-pickers">
+          <label className="editor-label">Best time of day — one choice per time</label>
+          <div className="slot-pickers">
+            {slots.slice(0, perDay).map((slot, i) => (
+              <div className="slot-picker" key={i}>
+                <span className="slot-picker-label">
+                  {perDay > 1 ? `${i + 1}. ` : ''}{slot ? TIME_OF_DAY_SLOTS.find(s => s.key === slot).label : 'Anytime'}
+                </span>
+                <div className="slot-picker-options">
+                  {SLOT_OPTIONS.map(opt => (
+                    <button
+                      key={String(opt.key)}
+                      type="button"
+                      className={`slot-option ${slot === opt.key ? 'picked' : ''}`}
+                      style={{ '--slot-color': opt.color }}
+                      onClick={() => setSlotAt(i, opt.key)}
+                      aria-pressed={slot === opt.key}
+                      aria-label={`Time ${i + 1} of ${perDay}: ${opt.label}`}
+                      title={`${opt.label}${opt.key ? ` (${(TIME_OF_DAY_SLOTS.find(s => s.key === opt.key) || {}).hint || ''})` : ' whenever'}`}
+                    >
+                      <span>{opt.icon}</span> {opt.label}
+                    </button>
+                  ))}
                 </div>
-              ))}
-            </div>
-            <p className="editor-hint">
-              Each pick gets its own check-in on the Today page. “Anytime” occurrences
-              sit in the Anytime section with a ×{perDay} progress.
-            </p>
+              </div>
+            ))}
           </div>
-        )}
+          <p className="editor-hint">
+            {perDay > 1
+              ? 'Each pick gets its own check-in on the Today page. “Anytime” occurrences sit in the Anytime section with a ×' + perDay + ' progress.'
+              : 'Pick the part of the day this habit belongs to — or leave it as Anytime and check it off whenever it fits.'}
+          </p>
+        </div>
 
         <div className="editor-field">
           <div className="editor-preview">

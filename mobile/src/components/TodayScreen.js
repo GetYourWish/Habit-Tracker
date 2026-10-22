@@ -11,6 +11,7 @@
 import React, { useMemo, useState } from 'react'
 import { View, Text, ScrollView, Pressable, RefreshControl, StyleSheet } from 'react-native'
 import { MaterialCommunityIcons as Icon } from '@expo/vector-icons'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
   indexCompletions,
   evaluateHabitStatus,
@@ -24,7 +25,7 @@ import {
 import { toggleHabitCompletion, frequencyFor } from '../actions.js'
 import { useToday } from '../hooks/useToday.js'
 import { SPACING, TYPE } from '../theme.js'
-import { GlassCard, Fab, FilledButton, Snackbar } from './ui.js'
+import { GlassCard, FilledButton, Snackbar } from './ui.js'
 
 // Fallback cadence for habits with a broken frequency reference (desktop
 // TodayView parity — legacy files get working rows, never dead check rows).
@@ -224,6 +225,13 @@ function OccurrenceRow({ theme, occ, onToggle, onEdit }) {
 
 export function TodayScreen({ theme, state, store, refreshing, onRefresh, onAddHabit, onEditHabit }) {
   const data = state.data
+  // Top safe-area inset: with edge-to-edge the app paints under the status
+  // bar (clock / battery / signal icons). Every other screen clears it via
+  // its TopAppBar; Today has no bar, so its content must clear it here —
+  // the user-reported fix (2026-10-22): the hero stats card sat underneath
+  // the system status symbols. The inset is exactly the status-bar height,
+  // plus the regular screen padding below it.
+  const insets = useSafeAreaInsets()
   // LOCAL calendar date — completions are stored under this convention
   // (SCHEMA.md). useToday re-checks on a slow interval (and on app foreground
   // — Android suspends timers while backgrounded) so the screen rolls to the
@@ -365,12 +373,18 @@ export function TodayScreen({ theme, state, store, refreshing, onRefresh, onAddH
   return (
     <View style={{ flex: 1 }}>
       <ScrollView
-        contentContainerStyle={{ padding: SPACING.md, paddingBottom: 110 }}
+        contentContainerStyle={{
+          padding: SPACING.md,
+          paddingTop: insets.top + SPACING.md,
+          paddingBottom: 110
+        }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.textSecondary} />
         }
       >
-        {/* hero */}
+        {/* hero — the date / done-count / percentage card. Sits BELOW the
+            status bar thanks to the paddingTop above (2026-10-22 fix: it used
+            to render underneath the phone's clock/battery/signal icons). */}
         <GlassCard theme={theme} style={{ padding: SPACING.lg, marginBottom: SPACING.md, flexDirection: 'row', alignItems: 'center', gap: SPACING.lg }}>
           <View style={{ flex: 1 }}>
             <Text style={{ color: theme.textPrimary, fontSize: 22, fontWeight: '800', letterSpacing: -0.3 }}>
@@ -447,7 +461,11 @@ export function TodayScreen({ theme, state, store, refreshing, onRefresh, onAddH
         ))}
       </ScrollView>
 
-      <Fab theme={theme} label="New habit" icon="plus" onPress={onAddHabit} />
+      {/* The floating "New habit" FAB was REMOVED here (user request
+          2026-10-22: it clogged the view over the habit list). Creating a
+          habit lives on the Habits tab (its header button) and in the
+          empty-state below. The Snackbar is not floating UI — it only
+          appears for a few seconds after a failed check-in write. */}
       <Snackbar theme={theme} message={snack} onDone={() => setSnack('')} />
     </View>
   )

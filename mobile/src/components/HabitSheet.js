@@ -11,7 +11,7 @@
 //    into the file, so frequencyId resolves on every later load.
 
 import React, { useMemo, useState } from 'react'
-import { View, Text, TextInput, Modal, ScrollView, Pressable } from 'react-native'
+import { View, Text, TextInput, Modal, ScrollView, Pressable, Switch } from 'react-native'
 import {
   TIME_OF_DAY_SLOTS,
   systemFrequencies,
@@ -20,9 +20,11 @@ import {
   generateId
 } from '@habit-tracker/core'
 import { createHabit, updateHabit } from '../actions.js'
+import { requestReminderPermission } from '../notifications/reminders.js'
+import { resolveReminderTime, parseTime, formatTime } from '../notifications/plan.js'
 import { EMOJI_CATEGORIES, ALL_EMOJIS, searchEmojis } from './emojiCatalog.js'
 import { RADIUS, SPACING, TYPE } from '../theme.js'
-import { TextButton, FilledButton } from './ui.js'
+import { TextButton, FilledButton, TimeField } from './ui.js'
 
 const COLORS = [
   '#34d399', '#22d3ee', '#38bdf8', '#a78bfa', '#f472b6', '#fb7185',
@@ -254,6 +256,26 @@ export function HabitSheet({ theme, visible, data, store, habit, onClose, onArch
   // success) — but until now it failed silently, looking like a dead button.
   const [saveError, setSaveError] = useState(null)
 
+  // --- per-habit reminder preference (2026-10-22 notification system) ---
+  // reminderOn/reminderTime seed from the habit's stored preference; the
+  // TIME pre-seeds from the habit's own time-of-day slot (morning → 08:00)
+  // or the global default so the first toggle-on already shows a sensible
+  // time instead of a blank.
+  const [reminderOn, setReminderOn] = useState(Boolean(initial.reminder && initial.reminder.enabled))
+  const [reminderTime, setReminderTime] = useState(() => {
+    const t = parseTime(initial.reminder && initial.reminder.time)
+      || resolveReminderTime(
+        { ...initial, reminder: { enabled: true } },
+        initialFreq,
+        data
+      )
+      || { h: 9, m: 0 }
+    return formatTime(t.h, t.m)
+  })
+  // Set when Android refused/denied notification permission while the
+  // user was enabling reminders — surfaced as an inline hint.
+  const [reminderBlocked, setReminderBlocked] = useState(false)
+
   // reset local state whenever a different habit opens
   const [openId, setOpenId] = useState(isEdit ? initial.id : '__new__')
   const currentId = isEdit ? (habit && habit.id) : '__new__'
@@ -274,6 +296,14 @@ export function HabitSheet({ theme, visible, data, store, habit, onClose, onArch
       : (initialPerDay > 1 ? suggestSlots(initialPerDay) : [null]))
     setEmojiOpen(false)
     setSaveError(null)
+    setReminderOn(Boolean(initial.reminder && initial.reminder.enabled))
+    setReminderTime(() => {
+      const t = parseTime(initial.reminder && initial.reminder.time)
+        || resolveReminderTime({ ...initial, reminder: { enabled: true } }, initialFreq, data)
+        || { h: 9, m: 0 }
+      return formatTime(t.h, t.m)
+    })
+    setReminderBlocked(false)
   }
 
   const frequency = freqById[frequencyId] || null
@@ -311,7 +341,12 @@ export function HabitSheet({ theme, visible, data, store, habit, onClose, onArch
   const handleSave = () => {
     if (!canSave) return
     let timesOfDay = null
-    if (perDay > 1 && slots.some(s => s)) timesOfDay = slots.slice(0, perDay)
+    // 2026-10-22 fix: a SINGLE-occurrence habit may also carry a preferred
+    // time ("every day, in the morning") — the old `perDay > 1` gate forced
+    // every 1×/day habit into Anytime even though the user picked a time.
+    // resolveTimesOfDay caps at the effective per-day count, so
+    // timesOfDay ['morning'] on a once-a-day habit is valid core data.
+    if (slots.some(s => s)) timesOfDay = slots.slice(0, perDay)
     const freqDefaultPerDay = Math.max(1, Number(frequency && frequency.timesPerDay) || 1)
     const fields = {
       title: title.trim(),
@@ -328,6 +363,9 @@ export function HabitSheet({ theme, visible, data, store, habit, onClose, onArch
     }
     fields.timesPerDay = perDay !== freqDefaultPerDay ? perDay : null
     fields.timesOfDay = timesOfDay
+    // Per-habit reminder preference (kept even when OFF so toggling back
+    // on later retains the chosen time).
+    fields.reminder = { enabled: reminderOn, time: reminderTime }
 
     store.mutate((d, now) => {
       let next = isEdit
@@ -535,51 +573,114 @@ export function HabitSheet({ theme, visible, data, store, habit, onClose, onArch
               </Pressable>
             </View>
 
-            {perDay > 1 ? (
-              <View>
-                <Label theme={theme}>Best time of day — one choice per time</Label>
-                {slots.slice(0, perDay).map((slot, i) => (
-                  <View key={i} style={{ marginBottom: SPACING.md }}>
-                    <Text style={{ color: theme.textSecondary, fontSize: 12.5, fontWeight: '800', marginBottom: 5 }}>
-                      {i + 1}. {slot ? TIME_OF_DAY_SLOTS.find(s => s.key === slot).label : 'Anytime'}
-                    </Text>
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5 }}>
-                      {SLOT_OPTIONS.map(opt => {
-                        const selected = slot === opt.key
-                        return (
-                          <Pressable
-                            key={String(opt.key)}
-                            onPress={() => setSlotAt(i, opt.key)}
-                            style={{
-                              flexDirection: 'row',
-                              alignItems: 'center',
-                              gap: 5,
-                              borderWidth: 1.5,
-                              borderColor: selected ? opt.color : theme.border,
-                              backgroundColor: selected ? opt.color + '38' : theme.bgSecondary,
-                              borderRadius: 11,
-                              paddingHorizontal: 11,
-                              paddingVertical: 7
-                            }}
-                            accessibilityLabel={`Time ${i + 1} of ${perDay}: ${opt.label}`}
-                            accessibilityRole="radio"
-                            accessibilityState={{ selected }}
-                          >
-                            <Text style={{ fontSize: 13 }}>{opt.emoji}</Text>
-                            <Text style={{ color: theme.textPrimary, fontWeight: '700', fontSize: 13 }}>
-                              {opt.label}
-                            </Text>
-                          </Pressable>
-                        )
-                      })}
-                    </View>
+            {/* 2026-10-22 fix: the picker renders for EVERY per-day count,
+                including 1× — "every day, in the morning" is a first-class
+                choice, not an Anytime-only default. At 1× the picker is a
+                single "when does this usually happen?" row. */}
+            <View>
+              <Label theme={theme}>Best time of day{perDay > 1 ? ' — one choice per time' : ''}</Label>
+              {slots.slice(0, perDay).map((slot, i) => (
+                <View key={i} style={{ marginBottom: SPACING.md }}>
+                  <Text style={{ color: theme.textSecondary, fontSize: 12.5, fontWeight: '800', marginBottom: 5 }}>
+                    {perDay > 1 ? `${i + 1}. ` : ''}{slot ? TIME_OF_DAY_SLOTS.find(s => s.key === slot).label : 'Anytime'}
+                  </Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5 }}>
+                    {SLOT_OPTIONS.map(opt => {
+                      const selected = slot === opt.key
+                      return (
+                        <Pressable
+                          key={String(opt.key)}
+                          onPress={() => setSlotAt(i, opt.key)}
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: 5,
+                            borderWidth: 1.5,
+                            borderColor: selected ? opt.color : theme.border,
+                            backgroundColor: selected ? opt.color + '38' : theme.bgSecondary,
+                            borderRadius: 11,
+                            paddingHorizontal: 11,
+                            paddingVertical: 7
+                          }}
+                          accessibilityLabel={`Time ${i + 1} of ${perDay}: ${opt.label}`}
+                          accessibilityRole="radio"
+                          accessibilityState={{ selected }}
+                        >
+                          <Text style={{ fontSize: 13 }}>{opt.emoji}</Text>
+                          <Text style={{ color: theme.textPrimary, fontWeight: '700', fontSize: 13 }}>
+                            {opt.label}
+                          </Text>
+                        </Pressable>
+                      )
+                    })}
                   </View>
-                ))}
-                <Text style={{ color: theme.textMuted, ...TYPE.caption }}>
-                  Each pick gets its own check-in on the Today screen. Anytime occurrences sit in the Anytime section with a ×{perDay} progress.
-                </Text>
+                </View>
+              ))}
+              <Text style={{ color: theme.textMuted, ...TYPE.caption }}>
+                {perDay > 1
+                  ? `Each pick gets its own check-in on the Today screen. Anytime occurrences sit in the Anytime section with a ×${perDay} progress.`
+                  : 'Pick the part of the day this habit belongs to — or leave it as Anytime and check it off whenever it fits.'}
+              </Text>
+            </View>
+
+            {/* --- per-habit reminder (2026-10-22 notification system) --- */}
+            <Label theme={theme}>Reminder</Label>
+            <View
+              style={{
+                borderWidth: 1.5,
+                borderColor: theme.border,
+                borderRadius: 14,
+                padding: SPACING.md,
+                backgroundColor: theme.bgSecondary
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: SPACING.md }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: theme.textPrimary, fontSize: 14.5, fontWeight: '700' }}>
+                    Remind me on due days
+                  </Text>
+                  <Text style={{ color: theme.textMuted, ...TYPE.caption, marginTop: 2 }}>
+                    A local notification — works offline, never uses the internet.
+                  </Text>
+                </View>
+                <Switch
+                  value={reminderOn}
+                  onValueChange={async value => {
+                    setReminderOn(value)
+                    if (value) {
+                      const granted = await requestReminderPermission()
+                      setReminderBlocked(!granted)
+                    } else {
+                      setReminderBlocked(false)
+                    }
+                  }}
+                  trackColor={{ true: theme.flowState, false: theme.rowFillSelected }}
+                  thumbColor="#ffffff"
+                  accessibilityLabel="Remind me on due days"
+                />
               </View>
-            ) : null}
+              {reminderOn ? (
+                <View style={{ marginTop: SPACING.md }}>
+                  <Text style={{ color: theme.textSecondary, fontSize: 12.5, fontWeight: '800', marginBottom: 6 }}>
+                    Remind at
+                  </Text>
+                  <TimeField
+                    theme={theme}
+                    value={reminderTime}
+                    onChange={setReminderTime}
+                    accessibilityLabel="Reminder time"
+                  />
+                  <Text style={{ color: theme.textMuted, ...TYPE.caption, marginTop: 6 }}>
+                    Fires only on days this habit is due. Already checked off today? Today's reminder is skipped.
+                  </Text>
+                </View>
+              ) : null}
+              {reminderBlocked ? (
+                <Text style={{ color: theme.danger, ...TYPE.caption, marginTop: SPACING.sm }}>
+                  Android is blocking notifications for Habit Tracker — allow them in the phone's notification settings to get reminders.
+                </Text>
+              ) : null}
+            </View>
 
             {/* preview */}
             <View

@@ -7,10 +7,11 @@ Habit Tracker keeps your habits and history in a file you control. There is no a
 
 - Create habits for anything you want to repeat: exercise, medication, reading, chores, and more.
 - Decide how often each habit is due, from every day to selected weekly, monthly, or yearly schedules.
-- Set more than one check-in per day and place each one in the part of the day where it belongs.
+- Set more than one check-in per day and place each one in the part of the day where it belongs — a once-a-day habit can also pick its part of the day (for example “every day, in the morning”).
 - Check off today’s habits, undo an accidental check-in, and see what is resting today.
 - Organize habits into custom groups with names and colors.
 - Review 30- or 90-day progress, consistency, check-ins, perfect days, and streaks.
+- Get optional local reminders on Android — per habit, at the times you choose.
 - Archive habits without losing their history, or permanently delete ones you no longer need.
 - Use the same data on Windows and Android through an optional synced folder.
 
@@ -57,6 +58,7 @@ In the habit editor, pick the schedule that matches real life:
 - Weekly schedules suit habits such as gym sessions or calling family.
 - Monthly and yearly schedules work for less frequent reminders.
 - For a habit that happens more than once daily, increase **times per day** and give every occurrence a preferred time. For example, set “Brush teeth” to twice daily with **Morning** and **Evening**.
+- A once-a-day habit can also pick the part of the day it belongs to — choose **Morning**, **Afternoon**, **Evening**, or **Night** right under the times-per-day stepper. It then appears in that section of **Today** with its own check-in.
 - Use **Anytime** when the time does not matter. The app will track the number of completed occurrences instead of assigning a time slot.
 
 You can change a habit’s schedule later. Your recorded history remains in place; the app calculates progress and streaks from the habit’s current rules and check-in history.
@@ -85,15 +87,26 @@ Streaks reflect each habit’s schedule. A weekend-only habit, for example, does
 
 ## Settings, data, and privacy
 
-Habit Tracker is **local-first**: your data is stored in one `habit.json` file rather than in an account on a remote server.
+Habit Tracker is **local-first**: your data is stored in one `habit.json` file rather than in an account on a remote server. The apps are **fully offline**: neither the desktop program nor the Android app connects to the internet in any way. On Windows, every network request the app could possibly make is blocked inside the app itself (web sockets included), and on Android the release build is built without the Internet permission at all — there is no code that could go online even if it wanted to. Syncing is done by separate software you control, such as Syncthing.
 
 In **Settings**, you can:
 
 - View or change the data folder on desktop, or choose a different sync folder on Android.
 - Create a backup immediately with **Backup now**.
 - Turn automatic refresh from the sync folder on or off.
+- On Android, manage **reminders**: a master switch, a default reminder time, and a test reminder.
 - Choose a light, dark, or system theme.
 - Set the first day of the week used in weekly views and streak calculations.
+
+### Reminders (Android)
+
+The Android app can remind you about individual habits with local notifications:
+
+- Open any habit in the editor and turn on **Remind me on due days**, then pick the time.
+- Habits without their own time use the **default reminder time** from Settings, or the time suggested by their part of the day (morning habits remind in the morning, and so on).
+- Reminders only fire on days the habit is actually scheduled, and once you check the habit off, that day’s reminder is skipped.
+- Reminders are re-armed every time you open the app and survive phone restarts.
+- They are plain local notifications — no account, no servers, no internet use. If Android has notifications turned off for the app, Settings will point you to the right system screen to allow them.
 
 The apps create rolling backups before risky changes and keep recent copies. On desktop, backups are kept in a `.backups` folder beside `habit.json`. If the app detects a damaged data file, it offers recovery choices instead of silently overwriting it.
 

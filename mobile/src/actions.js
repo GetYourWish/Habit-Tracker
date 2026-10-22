@@ -22,7 +22,9 @@ function withMeta(data, now) {
 // desktop HabitEditor.handleSave (create path): new habit + board APPEND.
 // `fields` is the editor's payload — title, icon, color, categoryId,
 // frequencyId, and optionally timesPerDay / timesOfDay (per-occurrence
-// best-time-of-day picks).
+// best-time-of-day picks) and reminder (the per-habit notification
+// preference: { enabled, time } — Android-only UI, but the field rides in
+// the shared habit.json and the desktop editor preserves it untouched).
 export function createHabit(data, fields, now) {
   const newHabit = {
     id: generateId(),
@@ -40,6 +42,9 @@ export function createHabit(data, fields, now) {
   }
   if (Array.isArray(fields.timesOfDay) && fields.timesOfDay.length) {
     newHabit.timesOfDay = fields.timesOfDay.slice()
+  }
+  if (fields.reminder && typeof fields.reminder === 'object') {
+    newHabit.reminder = { ...fields.reminder }
   }
   return withMeta(
     {

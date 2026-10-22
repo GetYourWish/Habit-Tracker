@@ -35,7 +35,11 @@ function clickMoreTimes(n) {
 describe('HabitEditor — multiple best-time-of-day choices', () => {
   it('shows one time-of-day picker per occurrence once per-day > 1', () => {
     openCreate(makeData())
-    expect(screen.queryByTestId('slot-pickers')).not.toBeInTheDocument()
+    // 1×/day: the single picker is already visible (2026-10-22 fix — it
+    // used to be hidden until 2×, forcing every once-a-day habit into
+    // Anytime even when the user wanted "every day, in the morning").
+    expect(screen.getByTestId('slot-pickers')).toBeInTheDocument()
+    expect(screen.getAllByLabelText('Time 1 of 1: Anytime').length).toBe(1)
     clickMoreTimes(1) // 2× per day
     expect(screen.getByTestId('slot-pickers')).toBeInTheDocument()
     const pickerButtons = screen.getAllByLabelText(/Time [12] of 2:/i)
@@ -44,6 +48,28 @@ describe('HabitEditor — multiple best-time-of-day choices', () => {
     expect(screen.getAllByLabelText(/Time 1 of 2: Morning/i).length).toBe(1)
     expect(screen.getAllByLabelText(/Time 2 of 2: Evening/i).length).toBe(1)
     expect(screen.getAllByLabelText(/Time 1 of 2: Anytime/i).length).toBe(1)
+  })
+
+  it('saves a single-occurrence habit with the chosen time of day (the 1×/day fix)', () => {
+    const data = makeData()
+    const onSave = vi.fn()
+    render(
+      <HabitEditor data={data} onSave={onSave} onClose={() => {}} habit={null} />
+    )
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Morning vitamins' } })
+    // perDay stays at 1 — pick Evening for the single occurrence.
+    fireEvent.click(screen.getAllByLabelText('Time 1 of 1: Evening')[0])
+    expect(screen.getAllByLabelText('Time 1 of 1: Evening')[0]).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.click(screen.getByText('Create habit'))
+
+    expect(onSave).toHaveBeenCalledTimes(1)
+    const saved = onSave.mock.calls[0][0]
+    const habit = saved.habits[saved.habits.length - 1]
+    expect(habit.title).toBe('Morning vitamins')
+    // No per-day override was needed — the cadence default (1) carries it.
+    expect(habit.timesPerDay).toBeUndefined()
+    // The picked slot lands on the habit even at 1×/day.
+    expect(habit.timesOfDay).toEqual(['evening'])
   })
 
   it('suggests morning + evening for 2× per day and lets each be changed independently', () => {

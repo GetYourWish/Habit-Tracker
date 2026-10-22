@@ -7,13 +7,15 @@
 //   3. undo path: tapping a done occurrence removes the completion
 //   4. resting habits: not-scheduled habits collapse behind the toggle and
 //      a bonus tap still writes a completion
-//   5. empty state: no habits → the "Nothing tracked yet" hero + FAB
+//   5. empty state: no habits → the "Nothing tracked yet" hero + its
+//      centered New habit button (the FLOATING FAB is gone since 2026-10-22)
 //   6. hero progress counts every visible occurrence once
+//   7. the hero stats card clears the status bar (safe-area top inset)
 
 import React from 'react'
 import TestRenderer, { act } from 'react-test-renderer'
 import { TodayScreen } from '../src/components/TodayScreen.js'
-import { buildTheme } from '../src/theme.js'
+import { buildTheme, SPACING } from '../src/theme.js'
 
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 24, bottom: 24, left: 0, right: 0 })
@@ -254,6 +256,34 @@ describe('TodayScreen (desktop TodayView parity)', () => {
     // treated as daily → visible with a working check, never in resting
     expect(labelsOf(tree)).toContain('Check Legacy habit')
     expect(textOf(tree).join(' ')).not.toContain('resting today')
+  })
+
+  test('the hero stats card clears the status bar (2026-10-22 fix)', async () => {
+    // Edge-to-edge paints the app under the clock/battery/signal icons;
+    // the Today list's content must pad down by the top safe-area inset
+    // (mocked to 24 in this file) plus the normal screen padding.
+    const data = makeData({
+      habits: [
+        { id: 'h-1', title: 'Read', icon: '📖', color: '#38bdf8', frequencyId: FREQ_DAILY, archived: false }
+      ],
+      board: [{ type: 'habit', habitId: 'h-1' }]
+    })
+    const { tree } = await mountToday(data)
+    const scroll = tree.root.findAll(n => n.props && n.props.contentContainerStyle)[0]
+    expect(scroll).toBeTruthy()
+    expect(scroll.props.contentContainerStyle.paddingTop).toBe(24 + SPACING.md)
+  })
+
+  test('no floating New-habit FAB on Today (2026-10-22 removal — it clogged the view)', async () => {
+    const data = makeData({
+      habits: [
+        { id: 'h-1', title: 'Read', icon: '📖', color: '#38bdf8', frequencyId: FREQ_DAILY, archived: false }
+      ],
+      board: [{ type: 'habit', habitId: 'h-1' }]
+    })
+    const { tree } = await mountToday(data)
+    // nothing carries the FAB's accessibility label while habits exist
+    expect(labelsOf(tree)).not.toContain('New habit')
   })
 })
 

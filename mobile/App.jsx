@@ -4,14 +4,15 @@
 // (v1.1.0: the task-era Board is gone; the app is the habit app through
 // and through, at desktop parity.)
 
-import React, { useState, useCallback, useEffect } from 'react'
-import { View, Text, ActivityIndicator, StyleSheet, StatusBar } from 'react-native'
+import React, { useState, useCallback, useEffect, useRef } from 'react'
+import { View, Text, ActivityIndicator, StyleSheet, StatusBar, AppState } from 'react-native'
 import { useColorScheme } from 'react-native'
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context'
 import { buildTheme, SPACING } from './src/theme.js'
 import { updateSettings, setHabitArchived, deleteHabit } from './src/actions.js'
 import { useTracker } from './src/hooks/useTracker.js'
 import { readLastCrash, clearLastCrash } from './src/diagnostics.js'
+import { configureReminders, syncReminders } from './src/notifications/reminders.js'
 import { AppBackground, BottomNav } from './src/components/ui.js'
 import { TodayScreen } from './src/components/TodayScreen.js'
 import { HabitsScreen } from './src/components/HabitsScreen.js'
@@ -65,6 +66,10 @@ function AppShell() {
     readLastCrash().then(report => {
       if (alive) setCrashReport(report)
     })
+    // One-time notification setup (channel + foreground presentation).
+    // Fully defensive: if notifications are unavailable the app is
+    // unaffected — reminders are optional.
+    configureReminders()
     return () => {
       alive = false
     }
@@ -76,6 +81,42 @@ function AppShell() {
   }, [])
 
   const { store, state, folderUri, autoSync, booted, pickFolder, setAutoSync, refresh, forgetFolder } = useTracker()
+
+  // --- Reminder scheduling (2026-10-22 notification system) -------------
+  // Reminders are LOCAL scheduled notifications driven by habit.json:
+  //   - whenever the data settles (load, mutation, external sync), the
+  //     schedule is re-synced with a short debounce so a burst of writes
+  //     (frequency chips, steppers) does not reschedule on every tap;
+  //   - coming back to the foreground re-arms the ~30-day window, so a
+  //     phone that merely opens the app keeps its reminders alive;
+  //   - everything is failure-tolerant: a notifications module that
+  //     cannot load (test env) or a denied permission degrades to "no
+  //     reminders" and never affects the tracker itself.
+  const readyDataRef = useRef(null)
+  useEffect(() => {
+    if (state.status === 'ready' && state.data) {
+      readyDataRef.current = state.data
+    }
+  }, [state.status, state.data])
+
+  useEffect(() => {
+    if (state.status !== 'ready' || !state.data) return undefined
+    const timer = setTimeout(() => {
+      syncReminders(state.data).catch(() => {})
+    }, 1500)
+    return () => clearTimeout(timer)
+  }, [state.status, state.data])
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', next => {
+      if (next === 'active' && readyDataRef.current) {
+        syncReminders(readyDataRef.current).catch(() => {})
+      }
+    })
+    return () => {
+      subscription?.remove?.()
+    }
+  }, [])
 
   // theme preference follows data.settings.theme (desktop parity); the
   // optimistic override wins until the write settles

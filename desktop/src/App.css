@@ -87,7 +87,15 @@
 
 .main-content {
   flex: 1;
-  overflow: hidden;
+  /* THE Today-scroll fix (user-reported 2026-10-22): this container used to
+     be `overflow: hidden`, so long pages (Today with many habits, Habits,
+     Reviews) were CLIPPED at the viewport with no scrollbar — habits below
+     the fold were unreachable. The app shell is a fixed-height column
+     (.app height:100vh → nav + this), so the content area itself must be
+     the scroller. overflow-x stays hidden: nothing in the app scrolls
+     horizontally and a stray wide element must never add a h-scrollbar. */
+  overflow-y: auto;
+  overflow-x: hidden;
   position: relative;
 }
 
